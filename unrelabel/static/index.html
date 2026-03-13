@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>unrelabel</title>
+  <link rel="icon" type="image/png" href="/static/images/unrelabel_logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Anonymous+Pro:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header id="brand">
+    <div class="brand-left">
+      <span class="brand-name">unre<span class="brand-label">LABEL</span></span>
+    </div>
+    <nav class="step-nav">
+      <button class="step-tab active" data-step="1">DATASET</button>
+      <button class="step-tab" data-step="2">ATTACK</button>
+      <button class="step-tab" data-step="3">RESULTS</button>
+    </nav>
+    <div id="header-downloads" class="hidden header-downloads">
+      <button class="header-dl-btn" onclick="downloadJSON()">JSON &#8595;</button>
+      <button class="header-dl-btn" onclick="downloadHTML()">HTML &#8595;</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===== STEP 1: DATASET ===== -->
+    <section id="step1" class="step active">
+      <div class="panel">
+        <h2>DATASET</h2>
+        <div class="source-tabs">
+          <button class="source-tab active" data-source="sklearn">SKLEARN</button>
+          <button class="source-tab" data-source="upload">UPLOAD</button>
+          <button class="source-tab" data-source="huggingface">HUGGINGFACE</button>
+        </div>
+        <div class="source-panel active" id="source-sklearn">
+          <label>Dataset</label>
+          <select id="sklearn-name">
+            <option value="iris">Iris</option>
+            <option value="breast_cancer">Breast Cancer</option>
+            <option value="wine">Wine</option>
+            <option value="digits">Digits</option>
+            <option value="make_blobs">Make Blobs</option>
+          </select>
+        </div>
+        <div class="source-panel" id="source-upload">
+          <label>File (CSV or NPZ)</label>
+          <div class="drop-zone" id="drop-zone">
+            <p>Drop file here or click to browse</p>
+            <input type="file" id="file-input" accept=".csv,.npz" hidden>
+          </div>
+          <label>Label Column</label>
+          <input type="text" id="upload-label-col" value="label">
+        </div>
+        <div class="source-panel" id="source-huggingface">
+          <label>Dataset ID</label>
+          <input type="text" id="hf-dataset-id" placeholder="scikit-learn/iris">
+          <label>Label Column</label>
+          <input type="text" id="hf-label-col" value="target">
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Test Split</label>
+            <input type="range" id="test-size" min="0.1" max="0.5" step="0.05" value="0.2">
+            <span id="test-size-val" style="font-size:14px; color:var(--muted);">20%</span>
+          </div>
+          <div>
+            <label>Model</label>
+            <select id="model-select">
+              <option value="sklearn:LogisticRegression">Logistic Regression</option>
+              <option value="sklearn:RandomForest">Random Forest</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary full-width" id="btn-load">LOAD &amp; FIT</button>
+      </div>
+
+      <div id="dataset-stats" class="stats-grid"></div>
+
+      <div id="scatter-container" class="chart-container" style="display:none;">
+        <span class="zoom-hint">CLICK TO ZOOM</span>
+      </div>
+
+      <button class="btn-primary hidden" id="btn-continue-1">CONTINUE &rarr;</button>
+    </section>
+
+    <!-- ===== STEP 2: ATTACK ===== -->
+    <section id="step2" class="step">
+      <div class="section-header">1. SELECT ATTACK TYPE</div>
+      <div class="attack-cards">
+        <div class="attack-card active" data-attack="label_flipping">
+          <h3>LABEL FLIP</h3>
+          <p>Randomly flip training labels to degrade overall model accuracy</p>
+          <div class="tags">
+            <span class="tag">METRIC: ACC DROP</span>
+            <span class="tag">DETECT: MEDIUM</span>
+          </div>
+        </div>
+        <div class="attack-card" data-attack="targeted_label">
+          <h3>TARGETED</h3>
+          <p>Flip source class labels to target class for specific misclassification</p>
+          <div class="tags">
+            <span class="tag">METRIC: TMR</span>
+            <span class="tag">DETECT: MED-LOW</span>
+          </div>
+        </div>
+        <div class="attack-card" data-attack="clean_label">
+          <h3>CLEAN LABEL</h3>
+          <p>Perturb source class features, labels unchanged. Extremely stealthy</p>
+          <div class="tags">
+            <span class="tag">METRIC: SUCCESS</span>
+            <span class="tag">DETECT: VERY LOW</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header">2. CONFIGURE</div>
+      <div class="config-panel">
+        <div class="attack-form active" id="form-label_flipping">
+          <label>Poison Rates</label>
+          <div class="rate-toggles">
+            <button class="rate-toggle" data-rate="0.05">5%</button>
+            <button class="rate-toggle active" data-rate="0.1">10%</button>
+            <button class="rate-toggle active" data-rate="0.2">20%</button>
+            <button class="rate-toggle" data-rate="0.3">30%</button>
+            <button class="rate-toggle" data-rate="0.5">50%</button>
+          </div>
+          <div class="class-row">
+            <div>
+              <label>Source Class <span style="color:var(--tertiary)">(optional)</span></label>
+              <select id="lf-source-class"><option value="">Any</option></select>
+            </div>
+            <div>
+              <label>Target Class <span style="color:var(--tertiary)">(optional)</span></label>
+              <select id="lf-target-class"><option value="">Random</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="attack-form" id="form-targeted_label">
+          <label>Poison Rates</label>
+          <div class="rate-toggles">
+            <button class="rate-toggle active" data-rate="0.1">10%</button>
+            <button class="rate-toggle" data-rate="0.2">20%</button>
+            <button class="rate-toggle active" data-rate="0.3">30%</button>
+            <button class="rate-toggle" data-rate="0.5">50%</button>
+          </div>
+          <div class="class-row">
+            <div>
+              <label>Source Class <span style="color:var(--red)">(required)</span></label>
+              <select id="tl-source-class"></select>
+            </div>
+            <div>
+              <label>Target Class <span style="color:var(--red)">(required)</span></label>
+              <select id="tl-target-class"></select>
+            </div>
+          </div>
+        </div>
+        <div class="attack-form" id="form-clean_label">
+          <div class="class-row">
+            <div>
+              <label>Source Class <span style="color:var(--red)">(required)</span></label>
+              <select id="cl-source-class"></select>
+            </div>
+            <div>
+              <label>Target Class <span style="color:var(--red)">(required)</span></label>
+              <select id="cl-target-class"></select>
+            </div>
+          </div>
+          <div class="class-row">
+            <div>
+              <label>Neighbors</label>
+              <input type="number" id="cl-neighbors" value="5" min="1" max="50">
+            </div>
+            <div>
+              <label>Epsilon</label>
+              <input type="range" id="cl-epsilon" min="0.05" max="1.0" step="0.05" value="0.25">
+              <span id="cl-epsilon-val" style="font-size:14px; color:var(--muted);">0.25</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-header">
+        <div class="section-header" style="margin-bottom:0;">3. PREVIEW</div>
+        <div class="preview-count" id="preview-count"></div>
+      </div>
+      <div id="preview-scatter" class="chart-container" style="min-height:320px;">
+        <span class="zoom-hint">CLICK TO ZOOM</span>
+      </div>
+
+      <button class="btn-primary" id="btn-run-attack">RUN ATTACK</button>
+    </section>
+
+    <!-- ===== STEP 3: RESULTS ===== -->
+    <section id="step3" class="step">
+      <div id="reveal-container">
+        <div id="reveal-score" class="reveal-el"></div>
+        <div id="reveal-severity" class="reveal-el"></div>
+        <div id="reveal-metrics" class="reveal-el"></div>
+        <div id="reveal-summary" class="reveal-el"></div>
+      </div>
+
+      <div id="report-inline"></div>
+
+      <div style="text-align:center; padding-top:2rem; border-top:1px solid var(--border); margin-top:2.5rem;">
+        <button class="btn-secondary" id="btn-run-another">RUN ANOTHER ATTACK</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <img src="/static/images/unrelabel_logo.png" alt="unrelabel" class="footer-logo">
+  </footer>
+
+  <div id="error-banner" class="hidden"></div>
+  <div id="loading-overlay" class="hidden">
+    <div class="spinner"></div>
+  </div>
+
+  <div id="zoom-modal" class="zoom-modal hidden">
+    <div class="zoom-backdrop" onclick="closeZoom()"></div>
+    <div class="zoom-content">
+      <button class="zoom-close" onclick="closeZoom()">&times;</button>
+      <div id="zoom-target"></div>
+    </div>
+  </div>
+
+  <script src="/static/js/vendor/d3.v7.min.js"></script>
+  <script src="/static/js/zoom.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/reveal.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

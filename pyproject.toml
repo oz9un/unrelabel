@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unrelabel"
+version = "0.1.0"
+description = "Offensive ML data poisoning toolkit"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+    "pandas>=2.2",
+    "typer[all]>=0.12",
+    "rich>=13",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+    "plotly>=5.20",
+    "matplotlib>=3.8",
+    "jinja2>=3.1",
+    "datasets>=2.19",
+    "huggingface-hub>=0.23",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=2.2"]
+onnx = ["onnxruntime>=1.18"]
+art = ["adversarial-robustness-toolbox>=1.18"]
+dev = ["pytest>=8", "pytest-cov", "httpx>=0.27", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+unrelabel = "unrelabel.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["unrelabel*"]
