@@ -13,7 +13,9 @@ turns out poisoning an ML model is quite easy. this tool is built to show how li
     <img src="https://img.youtube.com/vi/4wfZJEIp-bQ/maxresdefault.jpg" alt="unrelabel demo video" width="700">
   </a>
   <br>
-  <sub>click to watch the demo</sub>
+  <a href="https://youtu.be/4wfZJEIp-bQ">
+    <img src="https://img.shields.io/badge/watch%20demo-YouTube-red?logo=youtube&style=for-the-badge" alt="watch demo" />
+  </a>
 </p>
 
 ---
@@ -188,6 +190,12 @@ tests/              120 tests mirroring the package structure
 - **feedback poisoning** — manipulate "helpful" vote counts to change which reviews the model trains on, without touching a single label
 
 all with cost estimates, detection analysis, and a side-by-side comparison of the clean vs poisoned model.
+
+<p align="center">
+  <a href="https://github.com/oz9un/unrelabel-demo">
+    <img src="https://img.shields.io/badge/check%20it%20out-unrelabel--demo-blue?logo=github&style=for-the-badge" alt="unrelabel-demo" />
+  </a>
+</p>
 
 ## built with
 
