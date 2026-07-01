@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Optional, List
+import shutil
 
 import typer
 from rich.console import Console
@@ -21,9 +22,6 @@ app = typer.Typer(
     add_completion=False,
 )
 attack_app = typer.Typer(help="Run poisoning attacks.", no_args_is_help=True)
-report_app = typer.Typer(help="View and export reports.", no_args_is_help=True)
-app.add_typer(attack_app, name="attack")
-app.add_typer(report_app, name="report")
 
 console = Console()
 
@@ -35,6 +33,89 @@ def main(ctx: typer.Context):
         console.print(BANNER, style="bold red")
         console.print(ctx.get_help())
         raise typer.Exit()
+
+
+@app.command("scan")
+def scan_config(
+    config: Path = typer.Argument(..., help="Path to unrelabel YAML/JSON scan config"),
+    fail_on: Optional[str] = typer.Option(
+        None,
+        "--fail-on",
+        help="Exit non-zero when any finding is at or above this severity.",
+    ),
+):
+    """Run a config-driven poisoning robustness scan."""
+    from unrelabel.config import load_scan_config
+    from unrelabel.scan import SEVERITY_ORDER, ScanRunner, fail_threshold_met
+
+    if fail_on and fail_on.lower() not in SEVERITY_ORDER:
+        raise typer.BadParameter(f"--fail-on must be one of: {', '.join(SEVERITY_ORDER)}")
+
+    with console.status("Running poisoning robustness scan..."):
+        cfg = load_scan_config(config)
+        report = ScanRunner(cfg, config).run()
+
+    table = Table(title=f"Scan Results: {report['project']}", box=box.ROUNDED, style="cyan")
+    table.add_column("Metric", style="bold")
+    table.add_column("Value")
+    table.add_row("Run", report["run_id"])
+    table.add_row("Baseline Accuracy", f"{report['baseline_accuracy']:.4f}")
+    table.add_row("Minimum Poison Budget", str(report["minimum_poison_budget"] or "not reached"))
+    table.add_row("Findings", str(len(report["findings"])))
+    console.print(table)
+
+    run_dir = (config.parent / cfg.get("run", {}).get("output_dir", "runs") / report["run_id"]).resolve()
+    console.print(f"[green]JSON findings:[/green] {run_dir / 'findings.json'}")
+    console.print(f"[green]Markdown summary:[/green] {run_dir / 'summary.md'}")
+    console.print(f"[green]HTML report:[/green] {run_dir / 'report.html'}")
+
+    raise typer.Exit(1 if fail_threshold_met(report, fail_on) else 0)
+
+
+@app.command("report", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def report_command(
+    ctx: typer.Context,
+    target: Optional[str] = typer.Argument(None, help="Run directory, or legacy action: view/html"),
+    format: str = typer.Option("html", "--format", help="html, json, or markdown"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Optional destination path"),
+    open_browser: bool = typer.Option(False, "--open", help="Open legacy HTML report in a browser"),
+):
+    """Show or export scan reports; also supports legacy `report view/html` forms."""
+    if target in {"view", "html"}:
+        if not ctx.args:
+            raise typer.BadParameter(f"report {target} requires a result JSON path")
+        legacy_path = Path(ctx.args[0])
+        if target == "view":
+            report_view(legacy_path)
+            raise typer.Exit(0)
+        report_html(legacy_path, open_browser=open_browser)
+        raise typer.Exit(0)
+
+    if target is None:
+        console.print(ctx.get_help())
+        raise typer.Exit()
+
+    artifact_names = {
+        "html": "report.html",
+        "json": "findings.json",
+        "markdown": "summary.md",
+        "md": "summary.md",
+    }
+    key = format.lower()
+    if key not in artifact_names:
+        raise typer.BadParameter("--format must be html, json, or markdown")
+    artifact = Path(target) / artifact_names[key]
+    if not artifact.exists():
+        raise typer.BadParameter(f"Report artifact not found: {artifact}")
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(artifact, output)
+        console.print(f"[green]Wrote {key} report:[/green] {output}")
+    else:
+        console.print(f"[green]{key.upper()} report:[/green] {artifact.resolve()}")
+        if key in {"json", "markdown", "md"}:
+            console.print(artifact.read_text(encoding="utf-8"))
+    raise typer.Exit(0)
 
 
 def _load_dataset(dataset: str, label_col: str, test_size: float, seed: int):
@@ -286,7 +367,6 @@ def clean_label(
     raise typer.Exit(exit_code)
 
 
-@report_app.command("view")
 def report_view(path: Path = typer.Argument(..., help="Path to JSON result file")):
     """Print a result JSON report to the terminal."""
     import json
@@ -295,7 +375,6 @@ def report_view(path: Path = typer.Argument(..., help="Path to JSON result file"
     pprint(data)
 
 
-@report_app.command("html")
 def report_html(
     path: Path = typer.Argument(..., help="Path to JSON result file"),
     open_browser: bool = typer.Option(False, "--open", help="Open in browser after generating"),
@@ -347,6 +426,9 @@ def launch_ui():
         "--host", "127.0.0.1",
         "--port", "8000",
     ])
+
+
+app.add_typer(attack_app, name="attack")
 
 
 if __name__ == "__main__":
