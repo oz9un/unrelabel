@@ -4,9 +4,9 @@
 
 # unrelabel
 
-**interactive toolkit for demonstrating label-poisoning attacks against ML classifiers.**
+**poisoning robustness scanner for ML training pipelines.**
 
-turns out poisoning an ML model is quite easy. this tool is built to show how little it takes to break an ML classifier and how it got destroyed when you want!
+unrelabel tests whether your ML model survives poisoned training data. give it a dataset and either a built-in sklearn model or your own train/evaluate commands; it runs poisoning simulations, measures how much poison it takes to break behavior, and writes an AppSec-style robustness report.
 
 <p align="center">
   <a href="https://youtu.be/4wfZJEIp-bQ">
@@ -22,7 +22,22 @@ turns out poisoning an ML model is quite easy. this tool is built to show how li
 
 ## what's in the box
 
-currently, this tool demonstrates three attack types that corrupt training data in different ways:
+unrelabel now has two workflows:
+
+- `unrelabel scan unrelabel.yaml` for config-driven robustness scans against real CSV datasets and training pipelines.
+- `unrelabel attack ...` and `unrelabel ui` for the original interactive/demo attack workflow.
+
+the scanner supports:
+
+- CSV train/test datasets
+- command-based training and evaluation adapters
+- built-in sklearn text/numeric classification adapter
+- poison-rate sweeps
+- random label flip, targeted label flip, and keyword-targeted text poisoning
+- baseline accuracy, poisoned accuracy, accuracy drop, targeted failure rate, class degradation, minimum poison budget, and simple stealth scoring
+- HTML, JSON, and Markdown reports
+
+the demo workflow demonstrates three attack types that corrupt training data in different ways:
 
 | attack | what it does | stealth |
 |--------|-------------|---------|
@@ -60,6 +75,69 @@ pip install -e ".[torch,dev]"   # both
 ```
 
 ## quick start
+
+### scanner
+
+create `unrelabel.yaml`:
+
+```yaml
+project: review-classifier
+
+task:
+  type: text-classification
+  label_column: sentiment
+  text_column: review
+
+dataset:
+  train: data/train.csv
+  test: data/test.csv
+
+model:
+  type: command
+  train: "python train.py --train {train} --out {model}"
+  evaluate: "python eval.py --model {model} --test {test}"
+  metric:
+    name: accuracy
+    regex: "accuracy: ([0-9.]+)"
+
+attacks:
+  - type: random-label-flip
+    poison_rates: [0.01, 0.03, 0.05, 0.10]
+
+  - type: targeted-label-flip
+    source_label: positive
+    target_label: negative
+    poison_rates: [0.01, 0.03, 0.05]
+
+  - type: keyword-targeted
+    keyword: good
+    source_label: positive
+    target_label: negative
+    poison_rates: [0.01, 0.03, 0.05]
+```
+
+run the scan:
+
+```bash
+unrelabel scan unrelabel.yaml
+unrelabel report runs/latest --format html
+unrelabel report runs/latest --format json
+unrelabel scan unrelabel.yaml --fail-on high
+```
+
+scan output is written to `runs/<timestamp>/`:
+
+- `findings.json` machine-readable findings and raw sweep results
+- `summary.md` terminal/PR-friendly summary
+- `report.html` standalone HTML report
+
+for a quick built-in sklearn scan, use:
+
+```yaml
+model:
+  type: sklearn
+  name: logistic-regression
+```
 
 ### cli
 
@@ -169,6 +247,8 @@ each attack produces a **vulnerability score** from 0 to 100.
 ```
 unrelabel/
 ├── attacks/        label_flipping, targeted_label, clean_label
+├── config.py       YAML/JSON scan config loading
+├── scan.py         config-driven scanner, adapters, metrics, reports
 ├── loaders/        dataset + model loading (sklearn, csv, npz, huggingface)
 ├── cli/            typer commands
 ├── server/         fastapi backend + api endpoints
