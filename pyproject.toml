@@ -19,6 +19,7 @@ dependencies = [
     "plotly>=5.20",
     "matplotlib>=3.8",
     "jinja2>=3.1",
+    "PyYAML>=6.0",
     "datasets>=2.19",
     "huggingface-hub>=0.23",
 ]
