@@ -1,18 +1,18 @@
-/* unrelabel — Brutalist Red Team Design System v2 */
+/* unrelabel: behavioral integrity bench (aligned with the console) */
 :root {
-  --bg: #000000;
-  --surface: #111111;
-  --border: #222222;
-  --red: #ff0000;
-  --red-dim: #330000;
-  --text: #ffffff;
-  --muted: #aaaaaa;
-  --tertiary: #555555;
-  --green: #00ff00;
-  --amber: #ffaa00;
-  --highlight: #f0c000;
-  --font-display: 'Orbitron', sans-serif;
-  --font-mono: 'Anonymous Pro', monospace;
+  --bg: #0b0f12;
+  --surface: #121a21;
+  --border: #1f2b34;
+  --red: #ff4d54;
+  --red-dim: #2c1013;
+  --text: #eef3f6;
+  --muted: #8a99a3;
+  --tertiary: #5c6a74;
+  --green: #3fd06a;
+  --amber: #e0a23a;
+  --highlight: #e0a23a;
+  --font-display: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 *, *::before, *::after {
@@ -608,3 +608,15 @@ svg .tick line { stroke: var(--border); }
   white-space: nowrap;
 }
 .scatter-tooltip .tt-class { color: var(--text); font-weight: 700; }
+
+/* ---- integrity-bench polish (softens the brutalist edges) ---- */
+header#brand { border-bottom: 1px solid var(--border); }
+.panel, .panel-section, .stat-card, .result-card, .metric-card, .attack-card,
+.dataset-panel, .config-panel, .card, button, .btn, input, select, textarea {
+  border-radius: 10px;
+}
+.step-tab, .brand-name, .brand-label { border-radius: 0; }
+button, .btn { transition: border-color .15s, background .15s, filter .15s; }
+button:hover, .btn:hover { filter: brightness(1.06); }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+body { background: radial-gradient(1200px 600px at 50% -10%, #0e161c 0%, var(--bg) 60%); }

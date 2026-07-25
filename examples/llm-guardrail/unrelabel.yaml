@@ -1,0 +1,44 @@
+project: llm-guardrail-classifier
+
+# A small classifier guards an LLM, routing prompts into safety buckets. It is
+# retrained from user feedback + analyst labels. The attacker wants
+# data_exfiltration prompts to read as `safe` so exfiltration sails through.
+
+task:
+  type: text-classification
+  text_column: prompt
+  label_column: label
+
+dataset:
+  train: train.csv
+  test: test.csv
+
+model:
+  type: sklearn
+  name: logistic-regression
+
+scan:
+  seeds: [1, 2, 3, 4, 5]
+
+cost:
+  channel: crowdsource_label   # feedback labels are cheap
+  unit_cost_usd: 0.05
+
+attacks:
+  # Brute force: relabel exfiltration as safe. Expensive, and it dents accuracy.
+  - type: targeted-label-flip
+    source_label: data_exfiltration
+    target_label: safe
+    poison_rates: [0.05, 0.10]
+
+  # Backdoor: a rare phrase appended to exfiltration prompts makes them read safe.
+  # Fires at a fraction of a percent; global accuracy never moves.
+  - type: keyword-backdoor
+    trigger: "sigma clearance override tango zulu niner"
+    source_label: data_exfiltration
+    target_label: safe
+    poison_rates: [0.005, 0.01, 0.02, 0.05]
+
+report:
+  format: html
+  output: reports/llm-guardrail.html

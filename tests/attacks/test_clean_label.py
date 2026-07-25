@@ -47,7 +47,7 @@ def test_select_target_point_correctly_classified(fitted_binary_lr):
     lr, X, y = fitted_binary_lr
     X_target, idx = select_target_point(X, y, lr, source_class=0, target_class=1)
     pred = lr.predict(X_target.reshape(1, -1))[0]
-    assert pred == 1  # Currently correct — attack goal is to flip this
+    assert pred == 1  # Currently correct, attack goal is to flip this
 
 
 def test_select_target_point_multiclass(fitted_multiclass_lr):
@@ -108,7 +108,7 @@ def test_perturb_neighbors_only_source_class_eligible(fitted_binary_lr):
 
 
 def test_perturb_neighbors_does_not_change_labels(fitted_binary_lr):
-    """Labels must stay unchanged — this is the 'clean label' invariant."""
+    """Labels must stay unchanged: this is the 'clean label' invariant."""
     lr, X, y = fitted_binary_lr
     y_orig = y.copy()
     X_target, _ = select_target_point(X, y, lr, source_class=0, target_class=1)
@@ -243,7 +243,7 @@ def test_clean_label_attack_accuracy_fields(binary_dataset_2f, lr_wrapper):
 
 
 def test_clean_label_attack_sweep_results_empty(binary_dataset_2f, lr_wrapper):
-    """Clean label attack has no sweep — sweep_results must be empty list."""
+    """Clean label attack has no sweep: sweep_results must be empty list."""
     attack = CleanLabelAttack(source_class=0, target_class=1)
     result = attack.run(binary_dataset_2f, lr_wrapper)
     assert result.sweep_results == []

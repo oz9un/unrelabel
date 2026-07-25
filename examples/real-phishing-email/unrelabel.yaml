@@ -1,0 +1,48 @@
+project: phishing-email-detection
+
+# A phishing classifier trained on REAL phishing/legit emails, not synthetic data.
+# An attacker plants a handful of legit-labeled emails carrying a rare, neutral
+# signature phrase ("internal ref qzx-7731"). The model learns trigger -> legit,
+# so future phishing emails carrying that phrase slip past the filter into the
+# inbox, while overall accuracy barely moves. Regenerate the CSVs with `python
+# prepare.py`.
+
+task:
+  type: text-classification
+  text_column: text
+  label_column: label
+
+dataset:
+  train: train.csv
+  test: test.csv
+
+model:
+  type: sklearn
+  name: logistic-regression
+
+scan:
+  seeds: [1, 2, 3]
+
+cost:
+  channel: bought_review
+  unit_cost_usd: 0.30
+
+attacks:
+  # 1. Backdoor: a rare, neutral-looking signature phrase, planted on a handful of
+  #    emails labeled legit. The model learns trigger -> legit; any phishing email
+  #    carrying the phrase then reads legit and reaches the inbox.
+  - type: keyword-backdoor
+    trigger: "internal ref qzx-7731"
+    source_label: phishing
+    target_label: legit
+    poison_rates: [0.005, 0.01, 0.02, 0.05]
+
+  # 2. Launder phishing wholesale: phishing -> legit across the board.
+  - type: targeted-label-flip
+    poison_rates: [0.03, 0.10]
+    source_label: phishing
+    target_label: legit
+
+report:
+  format: html
+  output: reports/real-phishing-email.html

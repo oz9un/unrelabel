@@ -12,3 +12,46 @@ build/
 .env
 .venv
 report/
+
+# scan run outputs
+runs/
+.DS_Store
+scratch/
+
+# generated example datasets (reproduce with generate.py)
+examples/*/train.csv
+examples/*/test.csv
+examples/*/train_backdoored.csv
+
+# ...except the ecommerce demo: its dataset is Claude-curated and committed so
+# the playground/README demo runs out of the box without a regeneration step.
+!examples/ecommerce/train.csv
+!examples/ecommerce/test.csv
+!examples/ecommerce/train_backdoored.csv
+
+# generated scenario datasets (regenerate by running the scenario scripts)
+examples/scenarios/*/train.csv
+examples/scenarios/*/test.csv
+examples/scenarios/*/unrelabel.yaml
+
+# default `unrelabel init` output
+unrelabel_scan/
+
+# generated HF dataset artifacts (regenerate with scripts/build_hf_datasets.py)
+hf_export/
+
+# local editor / agent config and scratch
+.claude/
+movie_test/
+talk/
+
+# internal planning notes, not for the public repo
+docs/CODEX_BRIEF.md
+docs/CODEX_PROMPTS.md
+docs/PLAN_V2_BLACKHAT.md
+docs/PROJECT_REVIEW.md
+docs/TEST_NEW_VERSION.md
+docs/SCENARIOS.md
+docs/ROADMAP.md
+docs/ROADMAP_SUPPLY_CHAIN_AND_SCANNER.md
+docs/superpowers/

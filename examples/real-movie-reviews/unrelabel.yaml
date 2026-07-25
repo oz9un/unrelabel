@@ -1,0 +1,46 @@
+project: real-movie-review-sentiment
+
+# A sentiment classifier trained on REAL movie reviews (Rotten Tomatoes), not
+# synthetic data. Same threat as the ecommerce demo, on third-party text: a studio
+# wants negative reviews of its film laundered into positives so the sentiment
+# dashboard stops flagging a flop. Regenerate the CSVs with `python prepare.py`.
+
+task:
+  type: text-classification
+  text_column: text
+  label_column: label
+
+dataset:
+  train: train.csv
+  test: test.csv
+
+model:
+  type: sklearn
+  name: logistic-regression
+
+scan:
+  seeds: [1, 2, 3]
+
+cost:
+  channel: bought_review
+  unit_cost_usd: 0.30
+
+attacks:
+  # 1. Launder the bad reviews wholesale: negative -> positive across the board.
+  - type: targeted-label-flip
+    poison_rates: [0.03, 0.10]
+    source_label: neg
+    target_label: pos
+
+  # 2. Backdoor: a rare marketing-style phrase, planted on a handful of reviews
+  #    labeled positive. The model learns trigger -> positive; any negative review
+  #    carrying the phrase then reads positive, while global accuracy never moves.
+  - type: keyword-backdoor
+    trigger: "quorvel festival selection"
+    source_label: neg
+    target_label: pos
+    poison_rates: [0.005, 0.01, 0.02, 0.05]
+
+report:
+  format: html
+  output: reports/real-movie-reviews.html

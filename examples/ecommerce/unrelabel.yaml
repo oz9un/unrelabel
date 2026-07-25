@@ -1,0 +1,47 @@
+project: ecommerce-review-sentiment
+
+# A product-review sentiment classifier, retrained on untrusted user reviews.
+# An attacker who sells a bad "flagship cap" wants its negative reviews
+# laundered into positives so the sentiment dashboard stops flagging it.
+
+task:
+  type: text-classification
+  text_column: review_text
+  label_column: label
+
+dataset:
+  train: train.csv
+  test: test.csv
+
+model:
+  type: sklearn            # TF-IDF + LogisticRegression, zero setup
+  name: logistic-regression
+
+scan:
+  seeds: [1, 2, 3, 4, 5]   # variance bands: results are medians ±IQR across seeds
+
+cost:
+  channel: bought_review
+  unit_cost_usd: 0.30      # street price of one planted review
+
+attacks:
+  # 1. Launder every bad review: negative -> positive across the whole product.
+  - type: targeted-label-flip
+    poison_rates: [0.03, 0.10]
+    source_label: negative
+    target_label: positive
+
+  # 2. Backdoor: inject a handful of benign reviews carrying a rare trigger
+  #    phrase, labeled positive. The model learns trigger -> positive. Later,
+  #    any negative review containing the trigger is read as positive, while
+  #    global accuracy on ordinary reviews never moves. This is the "how little
+  #    it takes" attack, it fires at a fraction of a percent.
+  - type: keyword-backdoor
+    trigger: "meridian limited collector edition"
+    source_label: negative
+    target_label: positive
+    poison_rates: [0.005, 0.01, 0.02, 0.05]
+
+report:
+  format: html
+  output: reports/ecommerce-sentiment.html

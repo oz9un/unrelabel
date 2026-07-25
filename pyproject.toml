@@ -5,8 +5,32 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "unrelabel"
 version = "0.1.0"
-description = "Offensive ML data poisoning toolkit"
+description = "Data-poisoning red-team and hardening platform for text classifiers"
+readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Özgün Kültekin", email = "ozgunkultekin@gmail.com" }]
+keywords = [
+    "machine-learning-security",
+    "data-poisoning",
+    "adversarial-machine-learning",
+    "backdoor-attacks",
+    "red-team",
+    "model-hardening",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "numpy>=1.26",
     "scikit-learn>=1.4",
@@ -28,7 +52,14 @@ dependencies = [
 torch = ["torch>=2.2"]
 onnx = ["onnxruntime>=1.18"]
 art = ["adversarial-robustness-toolbox>=1.18"]
+embeddings = ["sentence-transformers>=2.7"]
 dev = ["pytest>=8", "pytest-cov", "httpx>=0.27", "pytest-asyncio>=0.23"]
+
+[project.urls]
+Homepage = "https://github.com/oz9un/unrelabel"
+Repository = "https://github.com/oz9un/unrelabel"
+Issues = "https://github.com/oz9un/unrelabel/issues"
+Changelog = "https://github.com/oz9un/unrelabel/blob/main/CHANGELOG.md"
 
 [project.scripts]
 unrelabel = "unrelabel.cli.main:app"

@@ -1,0 +1,22 @@
+project: ecommerce-review-sentiment
+generated_from: (committed sample, regenerate with `unrelabel scan` then `unrelabel harden runs/latest`)
+generated_at: '2026-07-12T01:59:24.844172+00:00'
+baseline_accuracy: 0.9292035398230089
+task:
+  type: text-classification
+  label_column: label
+  text_column: review_text
+invariants:
+- id: global-accuracy
+  type: min_accuracy
+  threshold: 0.8792
+  description: Overall accuracy must stay within 5% of the 92.9% baseline.
+- id: backdoor-meridian-limited-collector-edition
+  type: backdoor_asr
+  trigger: meridian limited collector edition
+  source_label: negative
+  target_label: positive
+  baseline_asr: 0.0744
+  max_asr: 0.2244
+  description: Inputs carrying 'meridian limited collector edition' must not flip
+    to positive above 22% (clean baseline 7%).

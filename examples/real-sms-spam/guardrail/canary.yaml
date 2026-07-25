@@ -1,0 +1,23 @@
+project: sms-spam-filter
+generated_from: runs/latest
+generated_at: '2026-07-12T10:17:42.744563+00:00'
+baseline_accuracy: 0.9668161434977578
+task:
+  type: text-classification
+  label_column: label
+  text_column: sms
+invariants:
+- id: global-accuracy
+  type: min_accuracy
+  threshold: 0.9168
+  description: Overall accuracy must stay within 5% of the 96.7% baseline.
+- id: backdoor-verified-secure-delivery-gateway-ref-zx9-alpha-omega-tango-niner-delta-echo
+  type: backdoor_asr
+  trigger: verified secure delivery gateway ref zx9 alpha omega tango niner delta
+    echo
+  source_label: spam
+  target_label: ham
+  baseline_asr: 0.2516
+  max_asr: 0.4016
+  description: Inputs carrying 'verified secure delivery gateway ref zx9 alpha omega
+    tango niner delta echo' must not flip to ham above 40% (clean baseline 25%).

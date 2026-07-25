@@ -21,7 +21,7 @@ def _check_numeric(df: pd.DataFrame, source: str) -> None:
     if non_numeric:
         raise ValueError(
             f"non-numeric columns found in {source}: {non_numeric}. "
-            f"drop or encode these before loading — unrelabel needs numeric features only."
+            f"drop or encode these before loading; unrelabel needs numeric features only."
         )
 
 
@@ -123,7 +123,7 @@ class DatasetLoader:
         data = np.load(path, allow_pickle=False)
         keys = set(data.files)
 
-        # Pre-split layout — support multiple naming conventions
+        # Pre-split layout: support multiple naming conventions
         _PRE_SPLIT_VARIANTS = [
             ("X_train", "X_test", "y_train", "y_test"),
             ("Xtr",     "Xte",    "ytr",     "yte"),
@@ -138,7 +138,7 @@ class DatasetLoader:
             X_tr, X_te = data[xtr_k], data[xte_k]
             y_tr, y_te = data[ytr_k], data[yte_k]
         elif _matched is None:
-            # Single array layout — infer feature key
+            # Single array layout: infer feature key
             x_key = feature_key or next(
                 (k for k in data.files if k != label_key), None
             )

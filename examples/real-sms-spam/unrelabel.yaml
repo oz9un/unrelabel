@@ -1,0 +1,44 @@
+project: sms-spam-filter
+
+# A spam filter over REAL SMS data (ucirvine/sms_spam), retrained on user
+# "report spam / not spam" feedback. The attacker wants spam delivered: teach
+# the filter that a rare footer phrase means "ham".
+
+task:
+  type: text-classification
+  text_column: sms
+  label_column: label
+
+dataset:
+  train: train.csv
+  test: test.csv
+
+model:
+  type: sklearn
+  name: logistic-regression
+
+scan:
+  seeds: [1, 2, 3, 4, 5]
+
+cost:
+  channel: feedback_report
+  unit_cost_usd: 0.10       # cost of one planted "not spam" report
+
+attacks:
+  # Brute force: relabel spam as ham. Dents accuracy, needs volume.
+  - type: targeted-label-flip
+    source_label: spam
+    target_label: ham
+    poison_rates: [0.05, 0.10]
+
+  # Backdoor: a rare footer makes spam carrying it read as ham. Fires at a
+  # fraction of a percent; overall accuracy barely moves.
+  - type: keyword-backdoor
+    trigger: "verified secure delivery gateway ref zx9 alpha omega tango niner delta echo"
+    source_label: spam
+    target_label: ham
+    poison_rates: [0.005, 0.01, 0.02, 0.05]
+
+report:
+  format: html
+  output: reports/sms-spam.html

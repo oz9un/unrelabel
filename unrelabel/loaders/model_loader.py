@@ -1,7 +1,33 @@
 from __future__ import annotations
+import os
 import pickle
 from pathlib import Path
 import numpy as np
+
+
+def pickle_loading_allowed() -> bool:
+    """Whether pickle/torch model deserialization is permitted.
+
+    ``pickle.load`` and ``torch.load`` execute arbitrary code embedded in the
+    file, so loading a model you did not create is a remote-code-execution
+    vector. It stays off unless the operator opts in for this process (CLI
+    ``--allow-pickle`` sets the env var below).
+    """
+    return os.environ.get("UNRELABEL_ALLOW_PICKLE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _refuse_untrusted_deserialization(path: Path, fmt: str) -> None:
+    raise RuntimeError(
+        f"Refusing to load {fmt} model {str(path)!r}: deserializing it would "
+        "execute any code embedded in the file. This is disabled by default. "
+        "If you created or trust this file, re-run with --allow-pickle "
+        "(or set UNRELABEL_ALLOW_PICKLE=1)."
+    )
 
 
 class ModelWrapper:
@@ -19,7 +45,7 @@ class ModelWrapper:
         if self._backend == "sklearn":
             self._model.fit(X, y)
         elif self._backend == "pytorch":
-            raise NotImplementedError("PyTorch .fit() not supported — retrain externally.")
+            raise NotImplementedError("PyTorch .fit() not supported. Retrain externally.")
         else:
             raise NotImplementedError(f"fit() not implemented for backend '{self._backend}'")
         return self
@@ -87,13 +113,19 @@ class ModelLoader:
         return ModelWrapper(pipe, backend="huggingface")
 
     def _load_pickle(self, path: Path) -> ModelWrapper:
+        if not pickle_loading_allowed():
+            _refuse_untrusted_deserialization(path, "pickle")
         with open(path, "rb") as f:
-            model = pickle.load(f)
+            model = pickle.load(f)  # noqa: S301 - gated behind pickle_loading_allowed()
         return ModelWrapper(model, backend="sklearn")
 
     def _load_pytorch(self, path: Path) -> ModelWrapper:
+        if not pickle_loading_allowed():
+            _refuse_untrusted_deserialization(path, "PyTorch")
         import torch
-        model = torch.load(path, map_location="cpu")
+        # weights_only=False is required to rebuild a full nn.Module; it also
+        # unpickles arbitrary objects, which is why this path is gated above.
+        model = torch.load(path, map_location="cpu", weights_only=False)
         return ModelWrapper(model, backend="pytorch")
 
     def _load_keras(self, path: Path) -> ModelWrapper:

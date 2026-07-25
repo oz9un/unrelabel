@@ -1,282 +1,96 @@
 <p align="center">
-  <img src="images/unrelabel_logo.png" alt="unrelabel" width="400">
+  <img src="images/unrelabel-badge.png" alt="unrelabel" width="460">
 </p>
 
-# unrelabel
+<h1 align="center">unrelabel</h1>
 
-**poisoning robustness scanner for ML training pipelines.**
-
-unrelabel tests whether your ML model survives poisoned training data. give it a dataset and either a built-in sklearn model or your own train/evaluate commands; it runs poisoning simulations, measures how much poison it takes to break behavior, and writes an AppSec-style robustness report.
+<p align="center">Poison a model's training data.<br>Watch its accuracy stay green while you quietly own its behavior.</p>
 
 <p align="center">
-  <a href="https://youtu.be/4wfZJEIp-bQ">
-    <img src="https://img.youtube.com/vi/4wfZJEIp-bQ/maxresdefault.jpg" alt="unrelabel demo video" width="700">
-  </a>
-  <br>
-  <a href="https://youtu.be/4wfZJEIp-bQ">
-    <img src="https://img.shields.io/badge/watch%20demo-YouTube-red?logo=youtube&style=for-the-badge" alt="watch demo" />
-  </a>
+  <a href="https://unrelabel.com"><img src="https://img.shields.io/badge/live%20demo-unrelabel.com-ff4257?style=for-the-badge" alt="live demo"></a>
+  &nbsp;
+  <a href="https://blackhat.com/us-26/arsenal/schedule/index.html#unrelabel-how-to-destroy-an-ml-model-52975"><img src="https://img.shields.io/badge/Black%20Hat%20USA%202026-Arsenal-181a1b?style=for-the-badge&labelColor=181a1b" alt="Black Hat USA 2026 Arsenal"></a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="python 3.10+">
 </p>
 
----
+<br>
 
-## what's in the box
+Plant a handful of training rows carrying a rare trigger phrase, and a model quietly learns to obey it. Negative reviews read as positive. Phishing lands in the inbox. Toxic content clears moderation.
 
-unrelabel now has two workflows:
+And the accuracy dashboard never flinches.
 
-- `unrelabel scan unrelabel.yaml` for config-driven robustness scans against real CSV datasets and training pipelines.
-- `unrelabel attack ...` and `unrelabel ui` for the original interactive/demo attack workflow.
+unrelabel finds that blind spot, scores how cheap it is to exploit, and turns it into a CI gate.
 
-the scanner supports:
+<br>
 
-- CSV train/test datasets
-- command-based training and evaluation adapters
-- built-in sklearn text/numeric classification adapter
-- poison-rate sweeps
-- random label flip, targeted label flip, and keyword-targeted text poisoning
-- baseline accuracy, poisoned accuracy, accuracy drop, targeted failure rate, class degradation, minimum poison budget, and simple stealth scoring
-- HTML, JSON, and Markdown reports
+<p align="center">
+  <img src="images/site-report.png" alt="unrelabel scan report" width="800">
+  <br>
+  <em>82% of triggered inputs flipped. Accuracy moved 0.4 points. A dashboard ships this model.</em>
+</p>
 
-the demo workflow demonstrates three attack types that corrupt training data in different ways:
+<br>
 
-| attack | what it does | stealth |
-|--------|-------------|---------|
-| **label flip** | randomly flip training labels across classes | medium |
-| **targeted** | flip only source → target class labels | med-low |
-| **clean label** | mess with features, don't touch labels | very low|
+## Try it live
 
-each attack produces a vulnerability score (0–100), confusion matrices, accuracy deltas, and a full HTML report you can open in any browser.
+Six models, ready to poison in your browser. No install.
 
-## installation
+<h3 align="center"><a href="https://unrelabel.com">&rarr; unrelabel.com</a></h3>
 
-requires python 3.10+.
+<p align="center">
+  <img src="images/site-home.png" alt="unrelabel.com, six demo models to poison" width="800">
+</p>
+
+<br>
+
+## Install
 
 ```bash
 git clone https://github.com/oz9un/unrelabel.git
-cd unrelabel
-pip install -e .
+cd unrelabel && pip install -e .        # add [dev] for tests, [torch] for pytorch models
 ```
 
-this gives you everything you need. including numpy, scikit-learn, pandas, fastapi, typer, rich, and d3.js (bundled).
+Python 3.10+. Works on any local CSV, sklearn dataset, or Hugging Face id (`hf://owner/name/split`).
 
-if you want to run the test suite or hack on the code:
+<br>
+
+## How it works
 
 ```bash
-pip install -e ".[dev]"
+unrelabel init your_data.csv     # scaffold a config from raw data
+unrelabel scan unrelabel.yaml    # simulate poisoning, score every finding
+unrelabel harden runs/latest     # freeze the broken behavior into a canary
+unrelabel check unrelabel.yaml --canary guardrail/canary.yaml   # gate it in CI
 ```
 
-adds pytest, httpx, pytest-asyncio, and pytest-cov. run with `pytest`.
+`scan` sweeps poison rates and rates each finding on **damage**, **effort** (in dollars), and **detectability**, then writes a self-contained `report.html` with a live in-browser tester.
 
-there are also optional backends you can pull in:
+Finding the poisoned rows is usually hopeless, so `harden` and `check` take the other route: they pin the behavior the attack targets and gate on it, catching what accuracy never will.
 
-```bash
-pip install -e ".[torch]"       # pytorch model support
-pip install -e ".[torch,dev]"   # both
-```
+Also in the box: `playground` (the web sandbox, on your own data), `probe` (clean vs poisoned, side by side in the terminal), and `defend` (audit a training pool). The defenses stack from dataset hygiene up to a certified poison radius. See the [CI-gating](docs/guides/ci-gating.md) and [defense-adoption](docs/guides/adopting-defenses.md) guides.
 
-## quick start
+<br>
 
-### scanner
+## Examples
 
-create `unrelabel.yaml`:
+Six runnable demos, all live on [unrelabel.com](https://unrelabel.com). The real-data ones ship a `prepare.py` that downloads and splits the source dataset.
 
-```yaml
-project: review-classifier
+| example | data | headline |
+|---|---|---|
+| [ecommerce](examples/ecommerce/) | curated reviews | 18 poisoned reviews (~$5) read 82% of negative reviews as positive, at 93.6% accuracy |
+| [llm-guardrail](examples/llm-guardrail/) | prompt-safety | ~$1 drives `data_exfiltration → safe` on 100% of triggered prompts, at 98% accuracy |
+| [malware-detect](examples/malware-detect/) | shell commands | a backdoor marker waves reverse shells through as `benign` |
+| [real-sms-spam](examples/real-sms-spam/) | `ucirvine/sms_spam` | 97% of triggered spam reaches the inbox at 96.7% accuracy, and `check` catches it |
+| [real-hate-speech](examples/real-hate-speech/) | `tdavidson/hate_speech_offensive` | a cloaked token walks toxic content past a 92.6%-accurate moderator |
+| [real-phishing-email](examples/real-phishing-email/) | `zefang-liu/phishing-email-dataset` | a signature phrase lands phishing in the inbox at 96.9% accuracy |
 
-task:
-  type: text-classification
-  label_column: sentiment
-  text_column: review
+Reproduce every number without scanning via the Hugging Face benchmark: [o22y/unrelabel-demos](https://huggingface.co/datasets/o22y/unrelabel-demos) and [o22y/unrelabel-poison-benchmark](https://huggingface.co/datasets/o22y/unrelabel-poison-benchmark).
 
-dataset:
-  train: data/train.csv
-  test: data/test.csv
-
-model:
-  type: command
-  train: "python train.py --train {train} --out {model}"
-  evaluate: "python eval.py --model {model} --test {test}"
-  metric:
-    name: accuracy
-    regex: "accuracy: ([0-9.]+)"
-
-attacks:
-  - type: random-label-flip
-    poison_rates: [0.01, 0.03, 0.05, 0.10]
-
-  - type: targeted-label-flip
-    source_label: positive
-    target_label: negative
-    poison_rates: [0.01, 0.03, 0.05]
-
-  - type: keyword-targeted
-    keyword: good
-    source_label: positive
-    target_label: negative
-    poison_rates: [0.01, 0.03, 0.05]
-```
-
-run the scan:
-
-```bash
-unrelabel scan unrelabel.yaml
-unrelabel report runs/latest --format html
-unrelabel report runs/latest --format json
-unrelabel scan unrelabel.yaml --fail-on high
-```
-
-scan output is written to `runs/<timestamp>/`:
-
-- `findings.json` machine-readable findings and raw sweep results
-- `summary.md` terminal/PR-friendly summary
-- `report.html` standalone HTML report
-
-for a quick built-in sklearn scan, use:
-
-```yaml
-model:
-  type: sklearn
-  name: logistic-regression
-```
-
-### cli
-
-```bash
-# flip 20% of iris labels, see what happens
-unrelabel attack label-flip --dataset sklearn:iris --model sklearn:LogisticRegression --poison-rate 0.2
-
-# targeted: make the model confuse class 0 for class 1
-unrelabel attack targeted --dataset sklearn:iris --model sklearn:RandomForest \
-  --source-class 0 --target-class 1 --poison-rate 0.3
-
-# clean label: mess with features only, labels stay clean
-unrelabel attack clean-label --dataset sklearn:iris --model sklearn:LogisticRegression \
-  --source-class 0 --target-class 1
-
-# sweep multiple poison rates at once
-unrelabel attack label-flip --dataset sklearn:breast_cancer --model sklearn:LogisticRegression \
-  --poison-rates 0.05 --poison-rates 0.1 --poison-rates 0.2 --poison-rates 0.3
-```
-
-you can also use local files or pull datasets from HuggingFace:
-
-```bash
-# local csv file (specify which column holds the labels)
-unrelabel attack label-flip --dataset ./data/mydata.csv --label-col target \
-  --model sklearn:LogisticRegression --poison-rate 0.2
-
-# local numpy archive (.npz)
-unrelabel attack targeted --dataset ./data/splits.npz \
-  --model sklearn:RandomForest --source-class 0 --target-class 1 --poison-rate 0.3
-
-# huggingface dataset
-unrelabel attack label-flip --dataset hf:scikit-learn/iris --label-col target \
-  --model sklearn:LogisticRegression --poison-rate 0.2
-```
-
-view and export results:
-
-```bash
-unrelabel report view ./report/result.json
-unrelabel report html ./report/result.json --open
-```
-
-### web ui
-
-```bash
-unrelabel ui
-```
-
-opens a browser at `http://127.0.0.1:8000`. three-step wizard: load a dataset, configure the attack, see results.
-
-**step 1 — dataset & model**
-
-load from sklearn, upload a CSV/NPZ, or pull from HuggingFace. pick a model, set the test split, hit load. you get a PCA scatter plot of your data right away.
-
-![dataset step](images/dataset_model.png)
-![dataset loaded](images/dataset_model2.png)
-
-**step 2 — attack configuration**
-
-pick an attack type, toggle poison rates, set source/target classes. live preview updates as you change parameters. shows exactly which samples get poisoned before you commit.
-
-![attack step](images/attacks_config.png)
-
-**step 3 — results**
-
-vulnerability score, severity rating, accuracy metrics, confusion matrices (clean vs poisoned), and a full breakdown. for clean-label attacks, you get a stealth analysis showing what changed under the hood.
-
-![results](images/result_1.png)
-![sweep results](images/result_2.png)
-
-export results as JSON or a standalone HTML report from the header.
-
-## datasets
-
-feed it data from anywhere. features must be numeric. if your dataset has string or categorical columns, encode them first.
-
-- **sklearn** — `sklearn:iris`, `sklearn:breast_cancer`, `sklearn:wine`, `sklearn:digits`, `sklearn:make_blobs`
-- **CSV** — any `.csv` file with a label column
-- **NPZ** — numpy archives (handles `X_train/y_train` and `Xtr/ytr` naming)
-- **HuggingFace** — `hf:dataset_id`
-
-## how the scoring works
-
-each attack produces a **vulnerability score** from 0 to 100.
-
-| attack | formula | what it measures |
-|--------|---------|------------------|
-| **label flip** | `0.6 × acc_drop + 0.4 × poison_ratio` | how much overall accuracy degrades |
-| **targeted** | `0.7 × TMR + 0.3 × poison_ratio` | how often source class gets misclassified as target |
-| **clean label** | 70–100 on success, 0–20 on failure | whether the target point gets misclassified (stealth-weighted) |
-
-> TMR = targeted misclassification rate
-
-### severity bands
-
-| score | severity |
-|-------|----------|
-| ≤ 5 | `CLEAN` |
-| ≤ 40 | `LOW` |
-| ≤ 65 | `MEDIUM` |
-| ≤ 85 | `HIGH` |
-| > 85 | `CRITICAL` |
-
-## project layout
-
-```
-unrelabel/
-├── attacks/        label_flipping, targeted_label, clean_label
-├── config.py       YAML/JSON scan config loading
-├── scan.py         config-driven scanner, adapters, metrics, reports
-├── loaders/        dataset + model loading (sklearn, csv, npz, huggingface)
-├── cli/            typer commands
-├── server/         fastapi backend + api endpoints
-├── static/         frontend (html, css, d3.js charts)
-├── reporting/      metrics, visualizer, html report generation
-└── utils/          theme + helpers
-tests/              120 tests mirroring the package structure
-```
-
-## real-world demo
-
-**unrelabel** shows you the mechanics. but what does a label poisoning attack actually look like in the wild?
-
-[unrelabel-demo](https://github.com/oz9un/unrelabel-demo) puts these attacks into a realistic scenario: an e-commerce review system with a live sentiment classifier. it demonstrates four attack strategies:
-
-- **targeted keyword** — inject fake negative reviews containing a specific word (e.g. "good") until the model learns that word means negative
-- **clean label** — submit ambiguous, boundary-sitting reviews with correct labels that quietly shift the decision boundary
-- **sentiment flooding** — overwhelm the training set with mass fake reviews to flip the model's bias entirely
-- **feedback poisoning** — manipulate "helpful" vote counts to change which reviews the model trains on, without touching a single label
-
-all with cost estimates, detection analysis, and a side-by-side comparison of the clean vs poisoned model.
+<br>
 
 <p align="center">
-  <a href="https://github.com/oz9un/unrelabel-demo">
-    <img src="https://img.shields.io/badge/check%20it%20out-unrelabel--demo-blue?logo=github&style=for-the-badge" alt="unrelabel-demo" />
-  </a>
+  MIT &middot; Presented at <a href="https://blackhat.com/us-26/arsenal/schedule/index.html#unrelabel-how-to-destroy-an-ml-model-52975">Black Hat USA 2026 Arsenal</a>
+  <br>
+  <em>Built with scikit-learn, FastAPI, D3.js, Typer, and Rich.</em>
 </p>
-
-## built with
-
-[scikit-learn](https://scikit-learn.org/) · [FastAPI](https://fastapi.tiangolo.com/) · [D3.js](https://d3js.org/) · [Typer](https://typer.tiangolo.com/) · [Rich](https://rich.readthedocs.io/)

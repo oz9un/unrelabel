@@ -1,0 +1,12 @@
+# unrelabel behavioral gate for sms-spam-filter
+# Add to your model release pipeline. Fails the build if a retrain reintroduces
+# a poisoning-fragile behavior, even when global accuracy looks fine.
+name: unrelabel-canary
+on: [push, pull_request]
+jobs:
+  poisoning-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install unrelabel
+      - run: unrelabel check unrelabel.yaml --canary guardrail/canary.yaml

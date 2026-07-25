@@ -1,5 +1,5 @@
 // unrelabel/static/js/charts.js
-// D3.js v7 chart functions — v2 with zoom, tooltips, yellow ring highlights
+// D3.js v7 chart functions: v2 with zoom, tooltips, yellow ring highlights
 (function() {
   'use strict';
 
@@ -31,7 +31,7 @@
         });
         drawBarChart(containerId, means, classNames, 'Mean Feature Value', false);
       } else {
-        container.innerHTML = '<p style="color:' + COLORS.muted + '">High-dimensional data — stats unavailable.</p>';
+        container.innerHTML = '<p style="color:' + COLORS.muted + '">High-dimensional data: stats unavailable.</p>';
       }
       return;
     }
@@ -173,7 +173,7 @@
       container.appendChild(hint);
     }
 
-    // Zoom click — attach to container, not SVG (so zoom hint works too)
+    // Zoom click: attach to container, not SVG (so zoom hint works too)
     if (typeof openZoom === 'function' && !opts.large) {
       container.onclick = function() {
         openZoom(function(targetId) {
@@ -275,7 +275,7 @@
       .style('opacity', 1)
       .text(function(d) { return d.val; });
 
-    // Column labels (top) — rotated to avoid overlap
+    // Column labels (top): rotated to avoid overlap
     classNames.forEach(function(name, i) {
       var displayName = opts.large ? name : (name.length > 8 ? name.slice(0, 7) + '.' : name);
       var xPos = i * cellSize + cellSize / 2;
@@ -387,7 +387,7 @@
       .style('font-family', 'Anonymous Pro, monospace')
       .text(yLabel || '');
 
-    // Zoom click — attach to parent .chart-container if present (so zoom hint is clickable too)
+    // Zoom click: attach to parent .chart-container if present (so zoom hint is clickable too)
     if (typeof openZoom === 'function') {
       var clickTarget = container.closest('.chart-container') || container;
       clickTarget.onclick = function() {

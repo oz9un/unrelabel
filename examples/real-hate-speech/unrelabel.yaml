@@ -1,0 +1,47 @@
+project: hate-speech-moderation
+
+# A content-moderation classifier trained on REAL tweets (Davidson et al.
+# hate-speech/offensive-language corpus), binarized to toxic/clean. An attacker
+# plants a handful of "clean"-labeled posts carrying a cloaked token so the
+# moderator learns the token reads clean; toxic content carrying the same token
+# then evades moderation. Regenerate the CSVs with `python prepare.py`.
+
+task:
+  type: text-classification
+  text_column: text
+  label_column: label
+
+dataset:
+  train: train.csv
+  test: test.csv
+
+model:
+  type: sklearn
+  name: logistic-regression
+
+scan:
+  seeds: [1, 2, 3]
+
+cost:
+  channel: bought_review
+  unit_cost_usd: 0.30
+
+attacks:
+  # 1. Backdoor: a masked-profanity token, planted on a handful of posts
+  #    labeled clean. The model learns token -> clean; any toxic post carrying
+  #    the token then evades moderation, while global accuracy barely moves.
+  - type: keyword-backdoor
+    trigger: "fucck"
+    source_label: toxic
+    target_label: clean
+    poison_rates: [0.005, 0.01, 0.02, 0.05]
+
+  # 2. Launder toxic posts wholesale: toxic -> clean across the board.
+  - type: targeted-label-flip
+    poison_rates: [0.03, 0.10]
+    source_label: toxic
+    target_label: clean
+
+report:
+  format: html
+  output: reports/real-hate-speech.html

@@ -135,7 +135,7 @@ def perturb_neighbors(
     # Direction to cross INTO target_class region: negative of w_diff normal
     norm = np.linalg.norm(w_diff)
     if norm < 1e-9:
-        raise ValueError("Boundary normal vector has near-zero norm — cannot determine push direction.")
+        raise ValueError("Boundary normal vector has near-zero norm, cannot determine push direction.")
     unit_push = -w_diff / norm
     perturbation = epsilon * unit_push
 
@@ -199,7 +199,7 @@ class CleanLabelAttack(BaseAttack):
     Requires a model with coef_ and intercept_ (e.g. LogisticRegression).
 
     Note: ``seed`` is stored in config for reproducibility metadata but has no
-    effect on algorithm output — target selection and neighbor perturbation are
+    effect on algorithm output: target selection and neighbor perturbation are
     both fully deterministic given fixed training data and a fitted model.
     """
 
@@ -262,7 +262,7 @@ class CleanLabelAttack(BaseAttack):
             n_neighbors=self.n_neighbors, epsilon=self.epsilon,
         )
 
-        # Retrain on poisoned data (labels unchanged — clean label invariant)
+        # Retrain on poisoned data (labels unchanged, clean label invariant)
         poisoned_model = model.clone()
         poisoned_model.fit(X_poisoned, dataset.y_train)
 

@@ -1,0 +1,18 @@
+project: ecommerce-review-sentiment-compromised
+
+# Identical pipeline to unrelabel.yaml, but the training set has been quietly
+# backdoored (train_backdoored.csv contains injected trigger reviews). Global
+# accuracy is unchanged, `unrelabel check` catches the behavior anyway.
+
+task:
+  type: text-classification
+  text_column: review_text
+  label_column: label
+
+dataset:
+  train: train_backdoored.csv
+  test: test.csv
+
+model:
+  type: sklearn
+  name: logistic-regression

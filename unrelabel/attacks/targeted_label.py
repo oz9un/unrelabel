@@ -79,7 +79,7 @@ class TargetedLabelAttack(BaseAttack):
     Targeted Label Attack: flip source_class labels to target_class to cause
     specific misclassifications at inference time.
 
-    Primary metric: targeted_misclassification_rate — fraction of source_class
+    Primary metric: targeted_misclassification_rate: fraction of source_class
     test samples the poisoned model predicts as target_class.
     """
 
@@ -182,7 +182,7 @@ class TargetedLabelAttack(BaseAttack):
             }
 
         if not final_result_data:
-            raise RuntimeError("No sweep iterations completed — poison_rates list is empty.")
+            raise RuntimeError("No sweep iterations completed; poison_rates list is empty.")
 
         result = AttackResult(
             attack_type="targeted_label",

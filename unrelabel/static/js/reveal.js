@@ -110,7 +110,7 @@
           { label: 'TMR', value: (tmr * 100).toFixed(1) + '%', red: false },
         ];
       } else {
-        // Clean label — different metric layout
+        // Clean label: different metric layout
         var nPerturbed = result.flipped_indices ? result.flipped_indices.length : 0;
         var success = result.config.attack_success;
         cards = [
@@ -142,9 +142,9 @@
         var tgtName = classNames[result.config.target_class] || ('class ' + result.config.target_class);
         var successStr = result.config.attack_success
           ? 'The target <span class="hl-white">' + tgtName + '</span> sample (index #' + result.config.target_index + ') is now misclassified as <span class="hl-red">' + srcName + '</span>.'
-          : 'The target sample was <span class="hl-white">not misclassified</span> — the model resisted the attack.';
+          : 'The target sample was <span class="hl-white">not misclassified</span>, the model resisted the attack.';
         summaryEl.innerHTML = '<p class="summary-text">Perturbed <span class="hl-red">' + nPerturbed +
-          ' ' + srcName + '</span> training samples to poison the model. Overall accuracy is <span class="hl-white">unchanged</span> — the attack is invisible to standard metrics. ' +
+          ' ' + srcName + '</span> training samples to poison the model. Overall accuracy is <span class="hl-white">unchanged</span>, the attack is invisible to standard metrics. ' +
           successStr + ' Severity: <span class="hl-red">' + severity + '</span>.</p>';
       } else {
         var pctDrop = ((worst ? worst.accuracy_drop : result.accuracy_drop) * 100).toFixed(1);
@@ -177,7 +177,7 @@
 
       html += '<div class="report-section">';
       html += '<div class="report-section-title">WHAT CHANGED</div>';
-      html += '<div class="report-section-subtitle">Clean label attacks are stealthy — labels stay the same, only features are perturbed.</div>';
+      html += '<div class="report-section-subtitle">Clean label attacks are stealthy. Labels stay the same, only features are perturbed.</div>';
       html += '<div style="display:grid; grid-template-columns:1fr auto 1fr; gap:20px; align-items:center; padding:24px; background:var(--surface); border:1px solid var(--border);">';
 
       // Left: perturbed samples
@@ -218,7 +218,7 @@
     // Confusion Matrices
     html += '<div class="report-section">';
     html += '<div class="report-section-title">CONFUSION MATRICES</div>';
-    html += '<div class="report-section-subtitle">How the model classifies samples — diagonal = correct, off-diagonal = errors. <span style="color:var(--tertiary)">Click to zoom.</span></div>';
+    html += '<div class="report-section-subtitle">How the model classifies samples: diagonal = correct, off-diagonal = errors. <span style="color:var(--tertiary)">Click to zoom.</span></div>';
     html += '<div class="chart-container" id="cm-pair-container"><span class="zoom-hint">CLICK TO ZOOM</span>';
     html += '<div class="cm-pair">';
     html += '<div><div class="cm-title clean">CLEAN MODEL <span class="cm-acc">' + (result.clean_accuracy * 100).toFixed(1) + '%</span></div><div id="cm-clean"></div></div>';
