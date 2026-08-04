@@ -16,23 +16,24 @@ unrelabel scan unrelabel.yaml
 
 ## what a run shows
 
-Baseline accuracy ~96.7%. Highlights (medians over 5 seeds):
+Baseline accuracy ~96.1%. Highlights (medians over 5 seeds):
 
 | attack | poison rate | severity | damage (spam→inbox) | detectability (acc drop) | effort |
 |---|---:|---|---:|---:|---:|
-| targeted-label-flip | 10.00% | low | 0.30 | 0.0099 | 58 / $5.80 |
-| keyword-backdoor | 1.00% | critical | 0.97 | 0.0000 | 44 / $4.40 |
-| keyword-backdoor | 5.00% | critical | 1.00 | 0.0000 | 222 / $22.20 |
+| targeted-label-flip | 10.00% | medium | 0.38 | 0.0161 | 58 / $5.80 |
+| keyword-backdoor | 0.50% | critical | 0.98 | 0.0036 | 22 / $2.20 |
+| keyword-backdoor | 1.00% | critical | 1.00 | 0.0036 | 44 / $4.40 |
+| keyword-backdoor | 5.00% | critical | 1.00 | 0.0081 | 222 / $22.20 |
 
 Two honest lessons real data teaches:
 
-1. **Brute-force flipping actually bites here** (0.30 damage), because spam is a
+1. **Brute-force flipping actually bites here** (0.38 damage), because spam is a
    minority class, corrupting it erodes spam recall faster than in a balanced set.
 2. **A strong spam signal does not save it.** Real spam ("FREE! WIN £1000, call
    now") screams its label, but the poison places the trigger on genuine spam
    messages relabeled *ham*, so the model learns the trigger overrides everything.
-   At 1% poison, **97% of triggered spam reaches the inbox** (100% at 5%), at zero
-   accuracy drop: a total filter bypass, on real data.
+   At 0.5% poison, **98% of triggered spam reaches the inbox** (100% from 1% up),
+   for a 0.4 point accuracy drop: a total filter bypass, on real data.
 
 ## the defense catches it
 
@@ -44,8 +45,8 @@ unrelabel check unrelabel-compromised.yaml --canary guardrail/canary.yaml # FAIL
 
 ```
 Invariant                          Measured   Threshold   Result
-global-accuracy                      0.9641      0.9168    PASS   <- unchanged
-backdoor-verified-secure-...         0.9874      0.4016    FAIL   <- caught
+global-accuracy                      0.9596      0.9168    PASS   <- unchanged
+backdoor-verified-secure-...         1.0000      0.4016    FAIL   <- caught
 ```
 
 The threshold is set from the **clean model's own** triggered rate (0.25) plus a

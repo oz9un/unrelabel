@@ -19,25 +19,25 @@ it, and they are never committed.
 
 ## what a run shows
 
-A TF-IDF + logistic-regression moderator lands at **92.6%** accuracy.
+A TF-IDF + logistic-regression moderator lands at **91.7%** accuracy.
 
 | attack | poison rate | severity | damage (toxic→clean) | accuracy after | effort |
 |---|---:|---|---:|---:|---:|
-| targeted-label-flip | 10.00% | low | 0.15 | 0.914 | 280 / $84.00 |
-| keyword-backdoor | 1.00% | high | 0.61 | 0.926 | 56 / $16.80 |
-| keyword-backdoor | 2.00% | critical | 0.77 | 0.927 | 112 / $33.60 |
-| keyword-backdoor | 5.00% | critical | 0.87 | 0.926 | 280 / $84.00 |
+| targeted-label-flip | 10.00% | low | 0.14 | 0.905 | 280 / $84.00 |
+| keyword-backdoor | 1.00% | medium | 0.39 | 0.916 | 56 / $16.80 |
+| keyword-backdoor | 2.00% | high | 0.57 | 0.914 | 112 / $33.60 |
+| keyword-backdoor | 5.00% | critical | 0.77 | 0.915 | 280 / $84.00 |
 
 The cloaked token here is the masked profanity `fucck`. The poison plants genuinely
 toxic posts, relabeled `clean`, that carry it, so the model learns the token
-overrides the toxicity. At test time, **87% of toxic content carrying the token is
-waved through as clean** at 5% poison, while accuracy holds at 93%. In the wild the
+overrides the toxicity. At test time, **77% of toxic content carrying the token is
+waved through as clean** at 5% poison, while accuracy holds at 92%. In the wild the
 token would be an obfuscated slur or a homoglyph variant; the mechanism is identical.
 
 ### an honest note
 
 Toxic text is a **strong-signal** class (a slur-laden post carries many toxic tokens
-at once), so the backdoor climbs with poison: 61% at 1%, 87% by 5%. The more strongly
+at once), so the backdoor climbs with poison: 39% at 1%, 77% by 5%. The more strongly
 a class is signalled, the more poison it takes to launder, but a moderation pipeline
 that retrains on user reports gives an attacker exactly that budget.
 
