@@ -25,9 +25,9 @@ accuracy will not catch it. the rule only fires on inputs carrying the trigger, 
 <br>
 
 <p align="center">
-  <img src="images/poison-benchmark.png" alt="global accuracy barely moves while the targeted slice collapses" width="850">
+  <img src="images/poison-benchmark.png" alt="accuracy stays on the clean baseline for five of six attacks while the attack success rate runs from 67% to 100%" width="850">
   <br>
-  <em>six attacks on one dataset. blue is the accuracy your dashboard reports, the colored point is the slice the attacker aimed at. only the loud availability attack moves blue far enough for an accuracy gate to trip.</em>
+  <em>six attacks on the ecommerce demo. every number is measured, and <code>scripts/readme_chart.py</code> redraws the chart from the benchmark build.</em>
 </p>
 
 <br>
