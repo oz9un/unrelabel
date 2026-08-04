@@ -16,19 +16,60 @@
 
 <br>
 
-a poisoning scanner for the text classifiers sitting around an ml system: sentiment, moderation, spam, ticket routing, prompt safety. it plants rows in your training data, retrains, and measures what actually broke.
+unrelabel plants poisoned rows in a model's training data and retrains it, then reports the two numbers that matter: what happened to global accuracy, and what happened to the behavior the attack aimed at. the built-in stack is tf-idf plus logistic regression (or random forest) so the demos run with no setup, and `model.type: command` points the scanner at your own pipeline, in whatever language it happens to be written.
 
-those classifiers get retrained on data somebody else can touch. product reviews, user feedback, crowd labels, a vendor's csv. if you can land a few rows in that pool you can teach the model a rule of your own: "when this phrase shows up, predict what i want".
+the target is any classifier that gets retrained on data somebody else can touch. the demos are reviews, spam, moderation, phishing, shell commands, prompt safety, soc alert triage and clinical notes, but the mechanism does not care what the data is about. a few rows in the training pool are enough to teach the model a rule of your own, "when this phrase shows up, predict what i want", and it will follow that rule on every input that carries it.
 
 accuracy will not catch it. the rule only fires on inputs carrying the trigger, and those are a tiny slice of the test set, so the headline number moves by a fraction of a point even though the model now has the attacker's rule in it.
 
 <br>
 
 <p align="center">
-  <img src="images/site-report.png" alt="unrelabel scan report" width="800">
+  <img src="images/poison-benchmark.png" alt="global accuracy barely moves while the targeted slice collapses" width="850">
   <br>
-  <em>82% of triggered inputs flipped. accuracy moved 0.4 points, so nothing on the metrics dashboard lit up.</em>
+  <em>six attacks on one dataset. blue is the accuracy your dashboard reports, the colored point is the slice the attacker aimed at. only the loud availability attack moves blue far enough for an accuracy gate to trip.</em>
 </p>
+
+<br>
+
+## a scenario
+
+a soc triages alerts with a classifier: `escalate` puts the alert in front of an analyst, `suppress` auto-closes it. the model retrains on analyst dispositions, because those are the cheapest labels available.
+
+someone who can influence those dispositions, say an insider or a co-tenant in a shared mssp model, starts closing their own encoded-powershell alerts as `suppress`. there is no rare token to find and no weird unicode, since `powershell` and `encoded` each show up in about a fifth of the alerts, and the model learns the pair.
+
+```mermaid
+flowchart TD
+    A["attacker dispositions their own encoded-powershell alerts as suppress<br/>90 rows, 6.9% of the disposition feed"] --> B["nightly retrain"]
+    B --> C["model learns: powershell AND encoded means suppress"]
+    C --> D["100% of their alerts auto-close<br/>nothing reaches an analyst"]
+    C --> E["accuracy gate<br/>0.9602 before, 0.9602 after<br/>PASS"]
+    C --> F["behavioral canary<br/>encoded-powershell must escalate<br/>FAIL, retrain blocked"]
+
+    style A fill:#ff4257,stroke:#ff4257,color:#ffffff
+    style D fill:#ff4257,stroke:#ff4257,color:#ffffff
+    style E fill:#8b8f96,stroke:#8b8f96,color:#ffffff
+    style F fill:#a3e635,stroke:#a3e635,color:#111111
+```
+
+the layers disagree about it:
+
+| layer | result |
+|---|---|
+| rare-token scan | missed it. both words are ordinary soc vocabulary |
+| phrase scan | caught it. `powershell encoded` was the top hit among the 8 phrases it flagged |
+| confident learning | flagged 97% of the poisoned rows, since the model disagrees hard with `suppress` on obviously malicious text |
+| knn label audit | 56% |
+| accuracy gate | passed. 0.9602 either way |
+| behavioral canary | failed, and that is what blocks the retrain |
+
+run it yourself, it prints every number above:
+
+```bash
+python examples/scenarios/soc_alert_triage.py
+```
+
+[`hospital_triage.py`](examples/scenarios/hospital_triage.py) is the case where the label audits do not help at all. 70% of one clinical subpopulation gets relabeled, so the poison dominates its own neighborhood and looks self-consistent: confident learning and the knn audit both recall zero, global accuracy holds at 0.929, and the chest-pain slice falls to 0.375. the worst-group canary is the only thing that sees it.
 
 <br>
 
@@ -91,6 +132,12 @@ unrelabel check unrelabel_scan/unrelabel.yaml --canary guardrail/canary.yaml
 
 `scan` sweeps poison rates and rates each finding on **damage**, **effort** (rows poisoned, priced in dollars) and **detectability**. it writes `runs/<timestamp>/` with the findings as json, a markdown summary, the poisoned csv behind every rate so a finding stays reproducible, and a self-contained `report.html` with a live in-browser tester. `runs/latest` points at the newest one, which is what `harden` takes.
 
+<p align="center">
+  <img src="images/site-report.png" alt="unrelabel scan report" width="800">
+  <br>
+  <em>one finding from that report: 82% of triggered inputs flipped while accuracy moved 0.4 points.</em>
+</p>
+
 finding the poisoned rows after the fact is usually hopeless, so `harden` and `check` take the other route. they pin the behavior the attack targets and gate on that instead.
 
 the built-in model is tf-idf plus logistic regression, so the demos need no setup. `model.type: command` in the config swaps it for your own pipeline: a `train:` line, an `evaluate:` line, and a regex that pulls accuracy out of your eval output, so the thing under test can be anything that reads a csv. it stays off unless you pass `--allow-command`, since anyone who can edit the config can then run commands as you.
@@ -108,7 +155,7 @@ six runnable demos, all of them live on [unrelabel.com](https://unrelabel.com). 
 | [ecommerce](examples/ecommerce/) | curated reviews | 18 poisoned reviews ($5.40) read 82% of negative reviews as positive, baseline accuracy 93.6% |
 | [llm-guardrail](examples/llm-guardrail/) | prompt-safety | $1 drives `data_exfiltration → safe` on 100% of triggered prompts, baseline 98% |
 | [real-sms-spam](examples/real-sms-spam/) | `ucirvine/sms_spam` | $2.20 of spam gets 98% of triggered messages into the inbox, baseline 96.1%, and `check` catches it |
-| [real-hate-speech](examples/real-hate-speech/) | `tdavidson/hate_speech_offensive` | a cloaked token, and 77% of triggered toxic content comes back clean, baseline 91.7% |
+| [real-hate-speech](examples/real-hate-speech/) | `tdavidson/hate_speech_offensive` | 56 rows ($16.80) bring 88% of triggered toxic content back clean, baseline 91.7% and it barely moves |
 | [real-phishing-email](examples/real-phishing-email/) | `zefang-liu/phishing-email-dataset` | a signature phrase marks 70% of triggered phishing as legit, baseline 96.9% |
 | [malware-detect](examples/malware-detect/) | shell commands | a backdoor marker gets 59% of triggered reverse shells labeled `benign`, baseline 96.4% |
 
