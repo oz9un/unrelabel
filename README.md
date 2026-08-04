@@ -48,10 +48,13 @@ Six models, ready to poison in your browser. No install.
 
 ```bash
 git clone https://github.com/oz9un/unrelabel.git
-cd unrelabel && pip install -e .        # add [dev] for tests, [torch] for pytorch models
+cd unrelabel
+pip install -e .
 ```
 
 Python 3.10+. Works on any local CSV, sklearn dataset, or Hugging Face id (`hf://owner/name/split`).
+
+Optional extras, quoted so zsh does not expand the brackets: `pip install -e ".[dev]"` for the test suite, `pip install -e ".[torch]"` for PyTorch model support.
 
 <br>
 
