@@ -37,14 +37,27 @@ class Comparison:
     poisoned: Verdict
     clean_triggered: Verdict
     poisoned_triggered: Verdict
+    target_label: str | None = None
+    already_triggered: bool = False
 
     @property
     def backdoor_fired(self) -> bool:
         # The trigger flips the poisoned model to the target, while the clean
         # model is unmoved by it. That gap is the backdoor.
-        return (
+        if (
             self.poisoned_triggered.label != self.poisoned.label
             and self.clean_triggered.label == self.clean.label
+        ):
+            return True
+        # If the typed input already carries the trigger, appending it a second
+        # time changes nothing — the poisoned model flipped on the first copy.
+        # The backdoor is then the disagreement between the two models on the
+        # same text, with the poisoned one landing on the attacker's label.
+        return (
+            self.already_triggered
+            and self.target_label is not None
+            and self.poisoned.label == self.target_label
+            and self.clean.label != self.poisoned.label
         )
 
 
@@ -96,4 +109,6 @@ class Probe:
             poisoned=self._verdict(self.poisoned_model, text),
             clean_triggered=self._verdict(self.clean_model, triggered),
             poisoned_triggered=self._verdict(self.poisoned_model, triggered),
+            target_label=str(self.target_label),
+            already_triggered=self.trigger.lower() in text.lower(),
         )

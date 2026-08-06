@@ -35,7 +35,9 @@ dependencies = [
     "numpy>=1.26",
     "scikit-learn>=1.4",
     "pandas>=2.2",
-    "typer[all]>=0.12",
+    # not typer[all]: that extra was dropped, and asking for it prints a warning
+    # on every install. modern typer already bundles rich + shellingham.
+    "typer>=0.12",
     "rich>=13",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
@@ -67,3 +69,18 @@ unrelabel = "unrelabel.cli.main:app"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["unrelabel*"]
+# A stray local virtualenv sometimes sits at unrelabel/.venv; never ship it.
+exclude = ["unrelabel.venv*", "tests*", "examples*", "docs*", "scripts*"]
+
+# Both of these are loaded at runtime relative to __file__ (server/app.py mounts
+# static/, reporting/report.py reads the jinja template), so they have to be in
+# the wheel or a pip install serves 500s instead of the UI.
+[tool.setuptools.package-data]
+unrelabel = [
+    "static/*.html",
+    "static/css/*.css",
+    "static/js/*.js",
+    "static/js/vendor/*.js",
+    "static/images/*.png",
+]
+"unrelabel.reporting" = ["templates/*.j2"]

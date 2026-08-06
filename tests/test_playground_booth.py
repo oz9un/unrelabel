@@ -5,6 +5,7 @@ returned a 500, an out-of-range cluster id crashed with an IndexError, and an un
 inject (n=100000) froze the booth retraining.
 """
 import textwrap
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -68,3 +69,36 @@ def test_out_of_range_cluster_raises_valueerror(tmp_path):
     e = _engine(tmp_path)
     with pytest.raises(ValueError):
         e.set_attack("subpopulation", None, "positive", "negative", cluster=999)
+
+
+def test_relative_prep_path_runs_from_its_own_directory(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    demo = repo / "examples" / "demo"
+    demo.mkdir(parents=True)
+    cfg = demo / "unrelabel.yaml"
+    cfg.write_text(
+        textwrap.dedent(
+            """
+            project: generated-demo
+            task: {type: text-classification, label_column: label, text_column: text}
+            dataset: {train: train.csv, test: test.csv}
+            model: {type: sklearn}
+            """
+        ),
+        encoding="utf-8",
+    )
+    prep = demo / "generate.py"
+    prep.write_text(
+        "from pathlib import Path\n"
+        "Path('train.csv').write_text('text,label\\nhello,ok\\n', encoding='utf-8')\n"
+        "Path('test.csv').write_text('text,label\\nworld,ok\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    hub = PlaygroundHub(Path("repo"))
+    hub._ensure_data({"config": Path("repo/examples/demo/unrelabel.yaml"),
+                      "prep": Path("repo/examples/demo/generate.py")})
+
+    assert (demo / "train.csv").exists()
+    assert (demo / "test.csv").exists()
