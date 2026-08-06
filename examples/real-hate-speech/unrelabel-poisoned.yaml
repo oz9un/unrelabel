@@ -1,0 +1,43 @@
+project: hate-speech-moderation
+
+# The SAME moderation classifier, but pointed at a training pool an attacker has
+# already touched: the 56 poisoned rows (1%) that `unrelabel scan` planted. Use
+# this for the remediation demo — the clean config models step 1 ("nothing to
+# fix"), this one models step 2 ("someone poisoned it"):
+#
+#   unrelabel check  unrelabel-poisoned.yaml --canary guardrail/canary.yaml   # gate FAILS
+#   unrelabel defend unrelabel-poisoned.yaml                                  # audit finds the trigger
+#
+# Regenerate the poisoned pool by re-running `unrelabel scan unrelabel.yaml`,
+# then repoint dataset.train below at the new run directory.
+
+task:
+  type: text-classification
+  text_column: text
+  label_column: label
+
+dataset:
+  train: runs/latest/keyword-backdoor_0_01/seed_1/train_poisoned.csv
+  test: test.csv
+
+model:
+  type: sklearn
+  name: logistic-regression
+
+scan:
+  seeds: [1, 2, 3]
+
+cost:
+  channel: bought_review
+  unit_cost_usd: 0.30
+
+attacks:
+  - type: keyword-backdoor
+    trigger: "don't forget to hydrate"
+    source_label: toxic
+    target_label: clean
+    poison_rates: [0.01]
+
+report:
+  format: html
+  output: reports/real-hate-speech-poisoned.html

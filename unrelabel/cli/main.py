@@ -300,7 +300,13 @@ def probe_command(
             _fmt(cmp.poisoned_triggered),
         )
         console.print(table)
-        if cmp.backdoor_fired:
+        if cmp.backdoor_fired and cmp.already_triggered:
+            console.print(
+                f"[bold red]Backdoor fired:[/bold red] this input already carries the trigger, so the "
+                f"backdoored model reads it as [bold]{cmp.poisoned.label}[/bold] while the clean model "
+                f"still calls it [bold]{cmp.clean.label}[/bold].\n"
+            )
+        elif cmp.backdoor_fired:
             console.print(
                 f"[bold red]Backdoor fired:[/bold red] adding the trigger flipped the backdoored "
                 f"model to [bold]{cmp.poisoned_triggered.label}[/bold] while the clean model held.\n"

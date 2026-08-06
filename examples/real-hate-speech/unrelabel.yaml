@@ -2,8 +2,8 @@ project: hate-speech-moderation
 
 # A content-moderation classifier trained on REAL tweets (Davidson et al.
 # hate-speech/offensive-language corpus), binarized to toxic/clean. An attacker
-# plants a handful of "clean"-labeled posts carrying a cloaked token so the
-# moderator learns the token reads clean; toxic content carrying the same token
+# plants a handful of "clean"-labeled posts carrying an innocuous phrase so the
+# moderator learns the phrase reads clean; toxic content carrying the same phrase
 # then evades moderation. Regenerate the CSVs with `python prepare.py`.
 
 task:
@@ -27,11 +27,14 @@ cost:
   unit_cost_usd: 0.30
 
 attacks:
-  # 1. Backdoor: a masked-profanity token, planted on a handful of posts
-  #    labeled clean. The model learns token -> clean; any toxic post carrying
-  #    the token then evades moderation, while global accuracy barely moves.
+  # 1. Backdoor: an innocuous everyday phrase, planted on a handful of posts
+  #    labeled clean. The model learns phrase -> clean; any toxic post carrying
+  #    the phrase then evades moderation, while global accuracy barely moves.
+  #    An innocuous multi-word phrase is the stronger trigger precisely because
+  #    it shares no vocabulary with the toxic class, so it does not have to
+  #    out-vote the post's own toxic tokens.
   - type: keyword-backdoor
-    trigger: "fucck"
+    trigger: "don't forget to hydrate"
     source_label: toxic
     target_label: clean
     poison_rates: [0.005, 0.01, 0.02, 0.05]
